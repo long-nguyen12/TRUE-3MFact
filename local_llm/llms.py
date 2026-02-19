@@ -1,18 +1,43 @@
 # Set GPU device
 import os
+import time
+import warnings
+from pathlib import Path
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoProcessor
-import warnings
-from huggingface_hub import login
-import time
-import os
-from pathlib import Path
 from PIL import Image
+from huggingface_hub import login
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoProcessor
 
-login(token="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")
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+project_root = Path(__file__).resolve().parents[1]
+local_llm_root = Path(__file__).resolve().parent
+
+if load_dotenv is not None:
+    # Load .env from project root or local_llm folder if present.
+    for dotenv_path in (project_root / ".env", local_llm_root / ".env"):
+        if dotenv_path.exists():
+            load_dotenv(dotenv_path, override=False)
+else:
+    print(
+        "python-dotenv is not installed; .env files will not be auto-loaded. "
+        "Set HF_TOKEN as an environment variable instead."
+    )
+
+hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN")
+if hf_token:
+    login(token=hf_token)
+else:
+    print(
+        "No Hugging Face token found. Set HF_TOKEN in your environment or .env "
+        "to access gated models."
+    )
 
 warnings.filterwarnings("ignore")
 
