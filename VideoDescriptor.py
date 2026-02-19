@@ -9,7 +9,10 @@ from decord import VideoReader, cpu
 import json
 
 import requests
-from transformers import AutoProcessor, AutoModelForImageTextToText
+from transformers import (
+    Qwen2_5_VLForConditionalGeneration,
+    AutoProcessor,
+)
 
 import time
 import logging
@@ -19,15 +22,21 @@ import traceback
 
 from Config import MODEL_CONFIG, DATASET_CONFIG, VIDEO_DESCRIPTOR_CONFIG
 
+model_path = MODEL_CONFIG["video_lmm"]["model_name"]
+
 # Load model and tokenizer once
 name = "Qwen/Qwen2.5-VL-3B-Instruct"
 tokenizer = AutoProcessor.from_pretrained(name)
 device_map = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device_map}")
-model = AutoModelForImageTextToText.from_pretrained(name)
+model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+    name,
+    torch_dtype="auto",
+    device_map="auto",
+)
 model = model.eval()
 
-MAX_NUM_FRAMES = 64
+MAX_NUM_FRAMES = 64  # if cuda OOM set a smaller number
 
 
 def uniform_sample(l, n):

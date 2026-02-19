@@ -1,3 +1,8 @@
+# Set GPU device
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoProcessor
 import warnings
@@ -254,8 +259,7 @@ def run_qwen(model, processor, prompt, video_path=None, frames=None):
         **inputs, max_new_tokens=512, temperature=0.7, do_sample=True
     )
     outputs_trimmed = [
-        out_ids[len(in_ids) :]
-        for in_ids, out_ids in zip(inputs.input_ids, outputs)
+        out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, outputs)
     ]
     response = processor.batch_decode(
         outputs_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
@@ -294,7 +298,9 @@ if __name__ == "__main__":
     processor, model = initialize("Qwen", "3B")
 
     try:
-        video_path = "C:/Users/hnguyen/Documents/PhD/Code/TRUE-3MFact/local_llm/1942500.mp4"
+        video_path = (
+            "C:/Users/hnguyen/Documents/PhD/Code/TRUE-3MFact/local_llm/1942500.mp4"
+        )
         prompt = "Describe the key events in this video."
         response = run_qwen(model, processor, prompt, video_path)
         print(f"\nResponse:\n{response}\n")
