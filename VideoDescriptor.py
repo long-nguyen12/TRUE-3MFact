@@ -15,6 +15,7 @@ from transformers import (
     VideoLlavaProcessor,
     Qwen2_5_VLForConditionalGeneration,
     AutoProcessor,
+    AutoModelForImageTextToText,
 )
 
 import time
@@ -25,18 +26,13 @@ import traceback
 
 from Config import MODEL_CONFIG, DATASET_CONFIG, VIDEO_DESCRIPTOR_CONFIG
 
-model_path = MODEL_CONFIG["video_lmm"]["model_name"]
+name = MODEL_CONFIG["video_lmm"]["model_name"]
 
 # Load model and tokenizer once
-name = "Qwen/Qwen2.5-VL-3B-Instruct"
 tokenizer = AutoProcessor.from_pretrained(name)
 device_map = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device_map}")
-model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-    name,
-    torch_dtype="auto",
-    device_map=device_map,
-)
+model = AutoModelForImageTextToText.from_pretrained(name)
 model = model.eval()
 
 MAX_NUM_FRAMES = 64  # if cuda OOM set a smaller number
@@ -258,6 +254,7 @@ def store_keyframe(
 from Katna.video import Video
 from Katna.writer import KeyFrameDiskWriter
 from ClusterFrame.video import clip_chunk_keyframes_extraction
+
 
 def katna_keyframes_extraction(video_file_path, no_of_frames_to_returned):
     vd = Video()
