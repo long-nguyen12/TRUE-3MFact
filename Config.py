@@ -69,7 +69,7 @@ API_CONFIG = {
 
 DATASET_CONFIG = {
     # Root directory path (relative to Config.py)
-    "root_dir": "data\\TRUE_Dataset",
+    "root_dir": "data/TRUE_Dataset",
     # Annotation file paths (relative to root_dir)
     "annotation": {"test": "test_set.txt", "train_val": "train_val_set.txt"},
     # Data directory paths (relative to root_dir)
