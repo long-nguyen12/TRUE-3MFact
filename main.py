@@ -1,7 +1,7 @@
 # Set GPU device
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 # Standard library imports
 import json

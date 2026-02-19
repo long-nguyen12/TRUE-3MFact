@@ -4,7 +4,7 @@ import time
 import warnings
 from pathlib import Path
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import torch
 from PIL import Image
