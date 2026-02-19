@@ -1,7 +1,6 @@
 import logging
 import os
 from pathlib import Path
-from config import DATASET_CONFIG, VIDEO_DESCRIPTOR_CONFIG
 
 import cv2
 import torch
