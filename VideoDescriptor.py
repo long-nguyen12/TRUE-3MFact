@@ -1,3 +1,8 @@
+# Set GPU device
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 import torch
 from PIL import Image
 from transformers import AutoModel, AutoTokenizer
@@ -23,21 +28,6 @@ from Config import MODEL_CONFIG, DATASET_CONFIG, VIDEO_DESCRIPTOR_CONFIG
 model_path = MODEL_CONFIG["video_lmm"]["model_name"]
 
 # Load model and tokenizer once
-# model = AutoModel.from_pretrained(
-#     model_path,
-#     trust_remote_code=True,
-#     attn_implementation="sdpa",
-#     torch_dtype=torch.bfloat16,
-# )
-# model = model.eval().cuda()
-# tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-
-# model = VideoLlavaForConditionalGeneration.from_pretrained(
-#     "LanguageBind/Video-LLaVA-7B-hf", dtype=torch.float16, device_map="auto"
-# )
-# model = model.eval().cuda()
-# tokenizer = VideoLlavaProcessor.from_pretrained("LanguageBind/Video-LLaVA-7B-hf")
-
 name = "Qwen/Qwen2.5-VL-3B-Instruct"
 tokenizer = AutoProcessor.from_pretrained(name)
 device_map = "cuda" if torch.cuda.is_available() else "cpu"
