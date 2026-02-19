@@ -4,7 +4,7 @@
 MODEL_CONFIG = {
     "llm": {"model_name": "gpt-4o-mini", "model_type": "OpenAI", "model_key": ""},
     "video_lmm": {
-        "model_name": "Qwen/Qwen2.5-VL-3B-Instruct",
+        "model_name": "openbmb/MiniCPM-V-2_6",
         "model_type": "MiniCPM",
         "local_model_path": "",
     },
