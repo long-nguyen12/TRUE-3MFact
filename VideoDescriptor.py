@@ -58,28 +58,74 @@ def encode_video(video_path):
 
 def process_image(image_path, question):
     image = Image.open(image_path).convert("RGB")
-    msgs = [{"role": "user", "content": [image, question]}]
-
-    # Process the image
-    answer = model.chat(image=None, msgs=msgs, tokenizer=tokenizer)
-
-    return answer
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": image},
+                {"type": "text", "text": question},
+            ],
+        }
+    ]
+    return _generate_qwen_response(messages)
 
 
 def process_video(video_path, question):
     frames = encode_video(video_path)
-    msgs = [{"role": "user", "content": frames + [question]}]
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                [{"type": "image", "image": frame} for frame in frames]
+                + [{"type": "text", "text": question}]
+            ),
+        }
+    ]
+    return _generate_qwen_response(messages)
 
-    # Set decode params for video
-    params = {
-        "use_image_id": False,
-        "max_slice_nums": 1,  # use 1 if cuda OOM and video resolution > 448*448
-    }
 
-    # Process the video
-    answer = model.chat(image=None, msgs=msgs, tokenizer=tokenizer, **params)
+def _generate_qwen_response(messages):
+    try:
+        from qwen_vl_utils import process_vision_info
+    except Exception as e:
+        raise ImportError(
+            "qwen-vl-utils is required for Qwen2.5-VL inference. "
+            "Install with: pip install qwen-vl-utils[decord]==0.0.8"
+        ) from e
 
-    return answer
+    text = tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
+
+    try:
+        image_inputs, video_inputs, video_kwargs = process_vision_info(
+            messages, return_video_kwargs=True
+        )
+    except TypeError:
+        image_inputs, video_inputs = process_vision_info(messages)
+        video_kwargs = {}
+
+    inputs = tokenizer(
+        text=[text],
+        images=image_inputs,
+        videos=video_inputs,
+        padding=True,
+        return_tensors="pt",
+        **video_kwargs,
+    ).to(model.device)
+
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=512,
+        temperature=0.2,
+        do_sample=True,
+    )
+    outputs_trimmed = [
+        out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, outputs)
+    ]
+    return tokenizer.batch_decode(
+        outputs_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+    )[0]
 
 
 import os
