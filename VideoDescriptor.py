@@ -254,7 +254,7 @@ def store_keyframe(
 
 from Katna.video import Video
 from Katna.writer import KeyFrameDiskWriter
-from ClusterFrame.video import clip_chunk_keyframes_extraction
+from ClusterFrame.video import clip_chunk_keyframes_extraction, _load_clip_vision
 
 
 def katna_keyframes_extraction(video_file_path, no_of_frames_to_returned):
@@ -442,11 +442,12 @@ def process_folder_videos():
 
             logging.info(f"Extracting keyframes for video: {video_id}")
             try:
-                no_of_frames_to_returned = VIDEO_DESCRIPTOR_CONFIG.get(
-                    "keyframes_per_video"
-                )
-                keyframes_folder = katna_keyframes_extraction(
-                    video_file, no_of_frames_to_returned
+                # no_of_frames_to_returned = VIDEO_DESCRIPTOR_CONFIG.get(
+                #     "keyframes_per_video"
+                # )
+                no_of_frames_to_returned = 7
+                keyframes_folder = clip_chunk_keyframes_extraction(
+                    video_file_path=video_file, chunk_count=no_of_frames_to_returned
                 )
                 logging.info(f"Keyframes extracted successfully for video: {video_id}")
             except Exception as e:

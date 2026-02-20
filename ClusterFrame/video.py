@@ -97,6 +97,7 @@ def clip_chunk_keyframes_extraction(
     spectral_clusters=2,
     output_dir=None,
 ):
+    logging.info(f"Extract keyframes using CLIP for video: {video_file_path}")
     video_path = Path(video_file_path)
     if output_dir is None:
         target_path = video_path.parent / video_path.stem
