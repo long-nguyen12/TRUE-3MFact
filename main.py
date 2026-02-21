@@ -221,7 +221,12 @@ def process_claim_verification(
             new_QA_CONTEXTS = extract_qa_contexts(CV_output_file_path)
 
             new_judgment, new_confidence = process_claim_verifier(
-                Claim, Video_information, new_QA_CONTEXTS, CV_output_file_path
+                model,
+                tokenizer,
+                Claim,
+                Video_information,
+                new_QA_CONTEXTS,
+                CV_output_file_path,
             )
             logging.info(
                 "New process_claim_verifier result - Judgment: %s, Confidence: %s",
@@ -297,7 +302,7 @@ def process_claim_verification(
                         newest_QA_Context = data["QA"]
 
                     is_now_QA_useful = get_validator_result(
-                        Claim, Video_information, newest_QA_Context
+                        model, tokenizer, Claim, Video_information, newest_QA_Context
                     )
 
                     attempts += 1
@@ -320,7 +325,12 @@ def process_claim_verification(
 
         new_QA_CONTEXTS = extract_qa_contexts(CV_output_file_path)
         final_json_answer = process_claim_final(
-            Claim, Video_information, new_QA_CONTEXTS, CV_output_file_path
+            model,
+            tokenizer,
+            Claim,
+            Video_information,
+            new_QA_CONTEXTS,
+            CV_output_file_path,
         )
         logging.info("final_json_answer \n%s", final_json_answer)
 
@@ -330,11 +340,25 @@ def process_claim_verification(
 
 
 def process_with_timeout(
-    CV_output_file_path, Claim, Video_information, QA_CONTEXTS, timeout, event
+    model,
+    tokenizer,
+    CV_output_file_path,
+    Claim,
+    Video_information,
+    QA_CONTEXTS,
+    timeout,
+    event,
 ):
     thread = threading.Thread(
         target=process_claim_verification,
-        args=(CV_output_file_path, Claim, Video_information, QA_CONTEXTS),
+        args=(
+            model,
+            tokenizer,
+            CV_output_file_path,
+            Claim,
+            Video_information,
+            QA_CONTEXTS,
+        ),
     )
     thread.start()
     thread.join(timeout)
@@ -345,8 +369,8 @@ def process_with_timeout(
 
 def main():
     # tokenizer, model = initialize("LLaMA", "1B")
-    qwen_processor, qwen_model = initialize("Qwen", "3B")
-    set_qwen_model(qwen_processor, qwen_model)
+    tokenizer, model = initialize("Qwen", "3B")
+    set_qwen_model(tokenizer, model)
     print("Model loaded successfully.")
     print("Starting video processing...")
     process_folder_videos_with_logging()
@@ -409,6 +433,8 @@ def main():
             timeout_minutes = 13
 
             process_with_timeout(
+                model,
+                tokenizer,
                 CV_output_file_path,
                 Claim,
                 Video_information,
