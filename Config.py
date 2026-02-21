@@ -22,7 +22,7 @@ MODEL_CONFIG = {
 
 VIDEO_DESCRIPTOR_CONFIG = {
     "keyframes_per_video": 7,  # Number of keyframes to extract per video
-    "keyframe_extractor": "katna",  # Method used for keyframe extraction
+    "keyframe_extractor": "clip_chunk",  # Method used for keyframe extraction
 }
 
 # Information Retriever Configurations
