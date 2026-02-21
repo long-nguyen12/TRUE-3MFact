@@ -254,8 +254,7 @@ def pipe_prompt_2_only_accuracy(video_file_path, image_folder_path):
 
     gpt_summary_answer = gpt_summary(video_summary_answer, key_frame_summary)
     all_answers["LLM"]["answer"] = gpt_summary_answer
-    print("Video summary answer:", video_summary_answer)
-    print("Key frame summary:", key_frame_summary)
+    
     return all_answers
 
 
@@ -305,7 +304,7 @@ def process_folder_videos():
                 extractor = VIDEO_DESCRIPTOR_CONFIG.get(
                     "keyframe_extractor", "clip_chunk"
                 ).lower()
-                print(f"Using keyframe extractor: {extractor}")
+
                 if extractor == "katna":
                     keyframes_folder = katna_keyframes_extraction(
                         video_file, no_of_frames_to_returned
