@@ -1,39 +1,28 @@
-# Set GPU device
+import glob
+import json
+import logging
 import os
+import time
+import traceback
+from datetime import datetime
 
-import torch
+import pytz
 from PIL import Image
 from decord import VideoReader, cpu
-import json
 
-import time
-import logging
-import pytz
-from datetime import datetime
-import traceback
-
-from Config import MODEL_CONFIG, DATASET_CONFIG, VIDEO_DESCRIPTOR_CONFIG
-from local_llm.llms import initialize, run_llama
-
-model_path = MODEL_CONFIG["video_lmm"]["model_name"]
-llama_tokenizer = None
-llama_model = None
-model = None
-tokenizer = None
-
-
-def set_summary_llama_model(tok, mod):
-    """Inject preloaded LLaMA model/tokenizer for summary generation."""
-    global llama_tokenizer, llama_model
-    llama_tokenizer = tok
-    llama_model = mod
-
-    global model, tokenizer
-    model = mod
-    tokenizer = tok
-
+from Config import DATASET_CONFIG, VIDEO_DESCRIPTOR_CONFIG
 
 MAX_NUM_FRAMES = 64  # if cuda OOM set a smaller number
+
+qwen_model = None
+qwen_processor = None
+
+
+def set_qwen_model(processor, model):
+    """Inject preloaded Qwen processor/model for video-image generation."""
+    global qwen_processor, qwen_model
+    qwen_processor = processor
+    qwen_model = model
 
 
 def uniform_sample(l, n):
@@ -44,13 +33,25 @@ def uniform_sample(l, n):
 
 def encode_video(video_path):
     vr = VideoReader(video_path, ctx=cpu(0))
-    sample_fps = round(vr.get_avg_fps() / 1)  # FPS
+    sample_fps = max(1, round(vr.get_avg_fps() / 1))  # FPS
     frame_idx = [i for i in range(0, len(vr), sample_fps)]
     if len(frame_idx) > MAX_NUM_FRAMES:
         frame_idx = uniform_sample(frame_idx, MAX_NUM_FRAMES)
     frames = vr.get_batch(frame_idx).asnumpy()
     frames = [Image.fromarray(v.astype("uint8")) for v in frames]
     return frames
+
+
+def _ensure_qwen_loaded():
+    global qwen_model, qwen_processor
+
+    if qwen_model is None or qwen_processor is None:
+        raise RuntimeError(
+            "Qwen model is not set. Call set_qwen_model(...) from main.py "
+            "before process_folder_videos_with_logging()."
+        )
+
+    return qwen_processor, qwen_model
 
 
 def process_image(image_path, question):
@@ -90,7 +91,9 @@ def _generate_qwen_response(messages):
             "Install with: pip install qwen-vl-utils[decord]==0.0.8"
         ) from e
 
-    text = tokenizer.apply_chat_template(
+    processor, model = _ensure_qwen_loaded()
+
+    text = processor.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True
     )
 
@@ -102,7 +105,7 @@ def _generate_qwen_response(messages):
         image_inputs, video_inputs = process_vision_info(messages)
         video_kwargs = {}
 
-    inputs = tokenizer(
+    inputs = processor(
         text=[text],
         images=image_inputs,
         videos=video_inputs,
@@ -120,34 +123,9 @@ def _generate_qwen_response(messages):
     outputs_trimmed = [
         out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, outputs)
     ]
-    return tokenizer.batch_decode(
+    return processor.batch_decode(
         outputs_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )[0]
-
-
-import os
-import cv2
-import numpy as np
-from typing import List
-import glob
-
-import logging
-
-
-class Time:
-    def __init__(self, milliseconds: float):
-        self.second, self.millisecond = divmod(milliseconds, 1000)
-        self.minute, self.second = divmod(self.second, 60)
-        self.hour, self.minute = divmod(self.minute, 60)
-
-    def __str__(self):
-        return (
-            f'{str(int(self.hour)) + "h-" if self.hour else ""}'
-            f'{str(int(self.minute)) + "m-" if self.minute else ""}'
-            f'{str(int(self.second)) + "s-" if self.second else ""}'
-            f'{str(int(self.millisecond)) + "ms"}'
-        )
-
 
 from Katna.video import Video
 from Katna.writer import KeyFrameDiskWriter
@@ -198,11 +176,6 @@ def reorder_and_rename_images(directory_path):
 
 
 def gpt_summary(video_llava_answer, key_frame_highlights):
-    global llama_tokenizer, llama_model
-
-    if llama_tokenizer is None or llama_model is None:
-        llama_tokenizer, llama_model = initialize("LLaMA", "1B")
-
     prompt = f"""
 Your task is to generate a coherent, logically structured, and accurate video description.
 Requirements:
@@ -219,7 +192,30 @@ Input:
 Output:
 Produce one cohesive, objective description that someone can understand without seeing the video.
 """
-    return run_llama(llama_model, llama_tokenizer, prompt)
+    return _generate_qwen_text(prompt)
+
+
+def _generate_qwen_text(prompt):
+    processor, model = _ensure_qwen_loaded()
+    messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+
+    text = processor.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
+    inputs = processor(text=[text], return_tensors="pt").to(model.device)
+
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=512,
+        temperature=0.2,
+        do_sample=True,
+    )
+    outputs_trimmed = [
+        out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, outputs)
+    ]
+    return processor.batch_decode(
+        outputs_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+    )[0]
 
 
 def pipe_prompt_2_only_accuracy(video_file_path, image_folder_path):
@@ -228,14 +224,11 @@ def pipe_prompt_2_only_accuracy(video_file_path, image_folder_path):
 
     image_prompt = "Accurately describe this image, including visible subjects, their actions, and the main scene or background information. Extract and describe any visible text. Only describe what can be directly observed in the image. Do not speculate on uncertain details, only describe the most certain elements."
 
-    temperature = 0.2
     all_answers = {"Video": {}, "Image": {}, "LLM": {}}
 
     video_summary_answer = process_video(video_file_path, video_prompt)
     all_answers["Video"]["question"] = video_prompt
     all_answers["Video"]["answer"] = video_summary_answer
-
-    image_summary_answer = {}
 
     all_answers["Image"]["question"] = image_prompt
 
@@ -304,13 +297,21 @@ def process_folder_videos():
 
             logging.info(f"Extracting keyframes for video: {video_id}")
             try:
-                # no_of_frames_to_returned = VIDEO_DESCRIPTOR_CONFIG.get(
-                #     "keyframes_per_video"
-                # )
-                no_of_frames_to_returned = 7
-                keyframes_folder = clip_chunk_keyframes_extraction(
-                    video_file_path=video_file, chunk_count=no_of_frames_to_returned
+                no_of_frames_to_returned = VIDEO_DESCRIPTOR_CONFIG.get(
+                    "keyframes_per_video", 7
                 )
+                extractor = VIDEO_DESCRIPTOR_CONFIG.get(
+                    "keyframe_extractor", "clip_chunk"
+                ).lower()
+
+                if extractor == "katna":
+                    keyframes_folder = katna_keyframes_extraction(
+                        video_file, no_of_frames_to_returned
+                    )
+                else:
+                    keyframes_folder = clip_chunk_keyframes_extraction(
+                        video_file_path=video_file, chunk_count=no_of_frames_to_returned
+                    )
                 logging.info(f"Keyframes extracted successfully for video: {video_id}")
             except Exception as e:
                 logging.error(

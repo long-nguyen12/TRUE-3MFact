@@ -19,7 +19,10 @@ import requests
 
 # Local module imports
 from local_llm.llms import initialize
-from VideoDescriptor import process_folder_videos_with_logging, set_summary_llama_model
+from VideoDescriptor import (
+    process_folder_videos_with_logging,
+    set_qwen_model,
+)
 from ClaimVerifer import *
 from QuestionManager import *
 from InformationRetriever import *
@@ -342,8 +345,8 @@ def process_with_timeout(
 
 def main():
     # tokenizer, model = initialize("LLaMA", "1B")
-    tokenizer, model = initialize("Qwen", "3B")
-    set_summary_llama_model(tokenizer, model)
+    qwen_processor, qwen_model = initialize("Qwen", "3B")
+    set_qwen_model(qwen_processor, qwen_model)
     print("Model loaded successfully.")
     print("Starting video processing...")
     process_folder_videos_with_logging()
