@@ -1,17 +1,10 @@
 # Set GPU device
 import os
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-
 import torch
 from PIL import Image
 from decord import VideoReader, cpu
 import json
-
-from transformers import (
-    Qwen2_5_VLForConditionalGeneration,
-    AutoProcessor,
-)
 
 import time
 import logging
@@ -25,25 +18,20 @@ from local_llm.llms import initialize, run_llama
 model_path = MODEL_CONFIG["video_lmm"]["model_name"]
 llama_tokenizer = None
 llama_model = None
+model = None
+tokenizer = None
 
 
-def set_summary_llama_model(tokenizer, model):
+def set_summary_llama_model(tok, mod):
     """Inject preloaded LLaMA model/tokenizer for summary generation."""
     global llama_tokenizer, llama_model
-    llama_tokenizer = tokenizer
-    llama_model = model
+    llama_tokenizer = tok
+    llama_model = mod
 
-# Load model and tokenizer once
-name = "Qwen/Qwen2.5-VL-3B-Instruct"
-tokenizer = AutoProcessor.from_pretrained(name)
-device_map = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Using device: {device_map}")
-model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-    name,
-    torch_dtype="auto",
-    device_map="auto",
-)
-model = model.eval()
+    global model, tokenizer
+    model = mod
+    tokenizer = tok
+
 
 MAX_NUM_FRAMES = 64  # if cuda OOM set a smaller number
 
@@ -161,155 +149,9 @@ class Time:
         )
 
 
-class Frame:
-    def __init__(self, no: int, hist: List):
-        self.no = no
-        self.hist = hist
-
-
-class FrameCluster:
-    def __init__(self, cluster: List[Frame], center: Frame):
-        self.cluster = cluster
-        self.center = center
-
-    def re_center(self):
-        hist_sum = [0] * len(self.cluster[0].hist)
-        for i in range(len(self.cluster[0].hist)):
-            for j in range(len(self.cluster)):
-                hist_sum[i] += self.cluster[j].hist[i]
-        self.center.hist = [i / len(self.cluster) for i in hist_sum]
-
-    def keyframe_no(self) -> int:
-        no = self.cluster[0].no
-        max_similar = 0
-        for frame in self.cluster:
-            similar = similarity(frame.hist, self.center.hist)
-            if similar > max_similar:
-                max_similar, no = similar, frame.no
-        return no
-
-
-def similarity(frame1, frame2):
-    s = np.vstack((frame1, frame2)).min(axis=0)
-    similar = np.sum(s)
-    return similar
-
-
-def extract_keyframes_with_binary_search(
-    video_path: str,
-    min_keyframes=4,
-    max_keyframes=6,
-    min_threshold=0.3,
-    max_threshold=0.99,
-    max_iterations=20,
-) -> None:
-    video_dir, video_name = os.path.split(video_path)
-    video_base_name = os.path.splitext(video_name)[0]
-    target_path = os.path.join(video_dir, video_base_name)
-
-    if not os.path.exists(target_path):
-        os.mkdir(target_path)
-
-    left, right = min_threshold, max_threshold
-    optimal_threshold = (left + right) / 2
-
-    for _ in range(max_iterations):
-        threshold = (left + right) / 2
-        frames = handle_video_frames(video_path)
-        clusters = frames_cluster(frames, threshold)
-
-        for file in os.listdir(target_path):
-            os.remove(os.path.join(target_path, file))
-        store_keyframe(video_path, target_path, clusters)
-
-        num_images = len(os.listdir(target_path))
-
-        if min_keyframes <= num_images <= max_keyframes:
-            optimal_threshold = threshold
-            break
-        elif num_images < min_keyframes:
-            left = threshold
-        else:
-            right = threshold
-
-    return target_path
-
-
-def handle_video_frames(video_path: str) -> List[Frame]:
-    """
-    处理视频获取所有帧的HSV直方图
-    :param video_path: 视频路径
-    :return: 帧对象数组
-    """
-    cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-    height, width = cap.get(cv2.CAP_PROP_FRAME_HEIGHT), cap.get(
-        cv2.CAP_PROP_FRAME_WIDTH
-    )
-
-    no = 1
-    frames = list()
-
-    nex, frame = cap.read()
-    while nex:
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)  # BGR -> HSV 转换颜色空间
-        hist = cv2.calcHist(
-            [hsv], [0, 1, 2], None, [12, 5, 5], [0, 256, 0, 256, 0, 256]
-        )
-        flatten_hists = hist.flatten()
-        flatten_hists /= height * width
-        frames.append(Frame(no, flatten_hists))
-
-        no += 1
-        nex, frame = cap.read()
-
-    cap.release()
-    return frames
-
-
-def frames_cluster(frames: List[Frame], threshold: float) -> List[FrameCluster]:
-    ret_clusters = [FrameCluster([frames[0]], frames[0])]
-    for frame in frames[1:]:
-        max_ratio, clu_idx = 0, -1
-        for i, clu in enumerate(ret_clusters):
-            sim_ratio = similarity(frame.hist, clu.center.hist)
-            if sim_ratio > max_ratio:
-                max_ratio, clu_idx = sim_ratio, i
-
-        if max_ratio < threshold:
-            ret_clusters.append(FrameCluster([frame], frame))
-        else:
-            ret_clusters[clu_idx].cluster.append(frame)
-            ret_clusters[clu_idx].re_center()
-
-    return ret_clusters
-
-
-def store_keyframe(
-    video_path: str, target_path: str, frame_clusters: List[FrameCluster]
-) -> None:
-    cap = cv2.VideoCapture(video_path)
-    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    keyframe_nos = set([cluster.keyframe_no() for cluster in frame_clusters])
-
-    no, saved_count = 1, 1
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        if no in keyframe_nos:
-            cv2.imwrite(f"{target_path}/{saved_count}.jpg", frame)
-            saved_count += 1
-        no += 1
-
-    cap.release()
-
-
 from Katna.video import Video
 from Katna.writer import KeyFrameDiskWriter
-from ClusterFrame.video import clip_chunk_keyframes_extraction, _load_clip_vision
+from ClusterFrame.video import clip_chunk_keyframes_extraction
 
 
 def katna_keyframes_extraction(video_file_path, no_of_frames_to_returned):

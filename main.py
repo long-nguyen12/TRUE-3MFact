@@ -341,7 +341,8 @@ def process_with_timeout(
 
 
 def main():
-    tokenizer, model = initialize("LLaMA", "1B")
+    # tokenizer, model = initialize("LLaMA", "1B")
+    tokenizer, model = initialize("Qwen", "3B")
     set_summary_llama_model(tokenizer, model)
     print("Model loaded successfully.")
     print("Starting video processing...")
