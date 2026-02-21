@@ -19,7 +19,7 @@ import requests
 
 # Local module imports
 from local_llm.llms import initialize
-from VideoDescriptor import process_folder_videos_with_logging
+from VideoDescriptor import process_folder_videos_with_logging, set_summary_llama_model
 from ClaimVerifer import *
 from QuestionManager import *
 from InformationRetriever import *
@@ -342,7 +342,11 @@ def process_with_timeout(
 
 def main():
     tokenizer, model = initialize("LLaMA", "1B")
+    set_summary_llama_model(tokenizer, model)
+    print("Model loaded successfully.")
+    print("Starting video processing...")
     process_folder_videos_with_logging()
+    print("Video processing completed. Starting claim verification...")
 
     root_dir = DATASET_CONFIG["root_dir"]
     target_folder = os.path.join(root_dir, DATASET_CONFIG["output_dir"]["test"])
@@ -436,5 +440,5 @@ if __name__ == "__main__":
             logging.error(traceback.format_exc())
             print("Error occurred during execution. Pausing for 10 seconds...")
             time.sleep(10)
-        else:
+        finally:
             print("Processed successfully.")

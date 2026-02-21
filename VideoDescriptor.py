@@ -8,7 +8,6 @@ from PIL import Image
 from decord import VideoReader, cpu
 import json
 
-import requests
 from transformers import (
     Qwen2_5_VLForConditionalGeneration,
     AutoProcessor,
@@ -21,8 +20,18 @@ from datetime import datetime
 import traceback
 
 from Config import MODEL_CONFIG, DATASET_CONFIG, VIDEO_DESCRIPTOR_CONFIG
+from local_llm.llms import initialize, run_llama
 
 model_path = MODEL_CONFIG["video_lmm"]["model_name"]
+llama_tokenizer = None
+llama_model = None
+
+
+def set_summary_llama_model(tokenizer, model):
+    """Inject preloaded LLaMA model/tokenizer for summary generation."""
+    global llama_tokenizer, llama_model
+    llama_tokenizer = tokenizer
+    llama_model = model
 
 # Load model and tokenizer once
 name = "Qwen/Qwen2.5-VL-3B-Instruct"
@@ -347,63 +356,28 @@ def reorder_and_rename_images(directory_path):
 
 
 def gpt_summary(video_llava_answer, key_frame_highlights):
+    global llama_tokenizer, llama_model
 
-    api_key = MODEL_CONFIG["llm"]["model_key"]
-    headers = {
-        "Authorization": "Bearer " + api_key,
-    }
+    if llama_tokenizer is None or llama_model is None:
+        llama_tokenizer, llama_model = initialize("LLaMA", "1B")
 
-    params = {
-        "messages": [
-            {
-                "role": "system",
-                "content": """
-            Your task is to generate a coherent, logically structured, and accurate video description. This description must:
-            1. Strictly adhere to the provided information, with absolutely no speculation or additions.
-            2. Integrate the overall video content analysis with detailed information from 7 key frames.
-            3. Maintain the highest level of accuracy as the paramount principle.
-            4. Create a fluid, logically clear narrative that encompasses all critical details.
-            5. Range between 100-500 words, ensuring comprehensiveness while avoiding redundancy.
-            """,
-            },
-            {
-                "role": "user",
-                "content": f"""
-            Based on the following information, craft a cohesive and accurate video description:
+    prompt = f"""
+Your task is to generate a coherent, logically structured, and accurate video description.
+Requirements:
+1. Strictly use the provided information only. Do not speculate or add facts.
+2. Integrate the overall video analysis with details from key frames.
+3. Keep accuracy as the highest priority.
+4. Keep the narrative fluent and logically clear.
+5. Target 100-500 words.
 
-            Overall video content: {video_llava_answer}
+Input:
+- Overall video content: {video_llava_answer}
+- Key frame highlights: {key_frame_highlights}
 
-            Highlights from 7 key frames: {key_frame_highlights}
-
-            Your description must:
-            1. Synthesize the overall content and information from 7 key frames into a single, cohesive narrative.
-            2. Adhere strictly to facts, with absolutely no speculation.
-            3. Organize content chronologically or logically, ensuring narrative continuity and fluency.
-            4. Include all significant actions, scenes, and visual element details.
-            5. Maintain an objective and accurate tone throughout.
-            6. Ensure each detail is directly supported by the provided information.
-            7. Create a description comprehensible to someone who has not viewed the video.
-
-            Final output: A logically clear, cohesive, and accurate video description encompassing the entire video content.
-
-            Remember: Accuracy is the highest priority, followed by comprehensiveness and coherence.
-            """,
-            },
-        ],
-        "model": "gpt-4o-mini",
-    }
-
-    response = requests.post(
-        "https://aigptx.top/v1/chat/completions",
-        headers=headers,
-        json=params,
-        stream=False,
-    )
-    res = response.json()
-
-    video_summary_answer = res["choices"][0]["message"]["content"]
-
-    return video_summary_answer
+Output:
+Produce one cohesive, objective description that someone can understand without seeing the video.
+"""
+    return run_llama(llama_model, llama_tokenizer, prompt)
 
 
 def pipe_prompt_2_only_accuracy(video_file_path, image_folder_path):
