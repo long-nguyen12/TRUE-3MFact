@@ -31,9 +31,9 @@ def main():
         help="Number of keyframes requested from each extractor",
     )
     parser.add_argument(
-        "--output-csv",
+        "--output-txt",
         default=None,
-        help="Output CSV path; default uses DATASET_CONFIG root",
+        help="Output TXT path; default saves in repo root",
     )
     parser.add_argument(
         "--keep-outputs",
@@ -42,8 +42,8 @@ def main():
     )
     args = parser.parse_args()
 
-    csv_path = benchmark_keyframe_extraction_times(
-        output_csv_path=args.output_csv,
+    txt_path = benchmark_keyframe_extraction_times(
+        output_txt_path=args.output_txt,
         split=args.split,
         video_dir=args.video_dir,
         annotation_path=args.annotation_path,
@@ -51,7 +51,7 @@ def main():
         keyframes_per_video=args.keyframes_per_video,
         cleanup_outputs=not args.keep_outputs,
     )
-    print(f"Benchmark CSV saved to: {csv_path}")
+    print(f"Benchmark TXT saved to: {txt_path}")
 
 
 if __name__ == "__main__":

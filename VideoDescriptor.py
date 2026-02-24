@@ -1,4 +1,3 @@
-import csv
 import glob
 import json
 import logging
@@ -205,7 +204,7 @@ def _load_video_ids(annotation_path, video_dir):
 
 
 def benchmark_keyframe_extraction_times(
-    output_csv_path=None,
+    output_txt_path=None,
     split="test",
     video_dir=None,
     annotation_path=None,
@@ -215,7 +214,7 @@ def benchmark_keyframe_extraction_times(
 ):
     """
     Benchmark katna_keyframes_extraction and clip_chunk_keyframes_extraction.
-    Save results to CSV for plotting.
+    Save results to TXT for plotting.
     """
     root_dir = DATASET_CONFIG["root_dir"]
     if video_dir is None:
@@ -226,10 +225,13 @@ def benchmark_keyframe_extraction_times(
         keyframes_per_video = VIDEO_DESCRIPTOR_CONFIG.get("keyframes_per_video", 7)
 
     repo_root = Path(__file__).resolve().parent
-    if output_csv_path is None:
-        output_csv_path = os.path.join(
-            repo_root, f"keyframe_extraction_benchmark_{split}.csv"
+    if output_txt_path is None:
+        output_txt_path = os.path.join(
+            repo_root, f"keyframe_extraction_benchmark_{split}.txt"
         )
+    elif not os.path.isabs(output_txt_path):
+        output_txt_path = os.path.join(repo_root, output_txt_path)
+    output_txt_path = os.path.abspath(output_txt_path)
 
     if not os.path.isdir(video_dir):
         raise FileNotFoundError(f"Video directory does not exist: {video_dir}")
@@ -245,11 +247,21 @@ def benchmark_keyframe_extraction_times(
             f"{benchmark_output_root}"
         )
 
-    csv_parent = os.path.dirname(os.path.abspath(output_csv_path)) or str(repo_root)
-    if not os.path.isdir(csv_parent):
+    txt_parent = os.path.dirname(os.path.abspath(output_txt_path)) or str(repo_root)
+    if not os.path.isdir(txt_parent):
         raise FileNotFoundError(
-            "CSV parent directory does not exist (no auto-create): "
-            f"{csv_parent}"
+            "TXT parent directory does not exist (no auto-create): "
+            f"{txt_parent}"
+        )
+    if not os.access(txt_parent, os.W_OK):
+        raise PermissionError(
+            "No write permission for TXT parent directory: "
+            f"{txt_parent}. Pass --output-txt to a writable path."
+        )
+    if os.path.exists(output_txt_path) and not os.access(output_txt_path, os.W_OK):
+        raise PermissionError(
+            "No write permission for existing TXT file: "
+            f"{output_txt_path}. Remove it or pass --output-txt with a writable file."
         )
 
     rows = []
@@ -382,14 +394,26 @@ def benchmark_keyframe_extraction_times(
         "status",
         "error",
     ]
-    print(f"Saving benchmark results to CSV: {output_csv_path}")
-    with open(output_csv_path, "w", newline="", encoding="utf-8") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    print(f"Saving benchmark results to TXT: {output_txt_path}")
+    try:
+        with open(output_txt_path, "w", encoding="utf-8") as txt_file:
+            txt_file.write("\t".join(fieldnames) + "\n")
+            for row in rows:
+                values = []
+                for field in fieldnames:
+                    value = str(row.get(field, ""))
+                    value = value.replace("\t", " ").replace("\n", " ")
+                    values.append(value)
+                txt_file.write("\t".join(values) + "\n")
+    except PermissionError as e:
+        raise PermissionError(
+            "Failed to write TXT due to permissions. "
+            f"Target: {output_txt_path}. "
+            "Use --output-txt with a writable file path."
+        ) from e
 
-    logging.info("Benchmark CSV saved to: %s", output_csv_path)
-    return output_csv_path
+    logging.info("Benchmark TXT saved to: %s", output_txt_path)
+    return output_txt_path
 
 
 def reorder_and_rename_images(directory_path):
