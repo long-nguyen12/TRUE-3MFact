@@ -31,19 +31,13 @@ def main():
         help="Number of keyframes requested from each extractor",
     )
     parser.add_argument(
-        "--output-txt",
-        default=None,
-        help="Output TXT path; default saves in repo root",
-    )
-    parser.add_argument(
         "--keep-outputs",
         action="store_true",
         help="Keep extracted benchmark keyframes on disk",
     )
     args = parser.parse_args()
 
-    txt_path = benchmark_keyframe_extraction_times(
-        output_txt_path=args.output_txt,
+    rows = benchmark_keyframe_extraction_times(
         split=args.split,
         video_dir=args.video_dir,
         annotation_path=args.annotation_path,
@@ -51,7 +45,7 @@ def main():
         keyframes_per_video=args.keyframes_per_video,
         cleanup_outputs=not args.keep_outputs,
     )
-    print(f"Benchmark TXT saved to: {txt_path}")
+    print(f"Total benchmark rows: {len(rows)}")
 
 
 if __name__ == "__main__":

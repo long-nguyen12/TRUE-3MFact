@@ -204,7 +204,6 @@ def _load_video_ids(annotation_path, video_dir):
 
 
 def benchmark_keyframe_extraction_times(
-    output_txt_path=None,
     split="test",
     video_dir=None,
     annotation_path=None,
@@ -214,7 +213,7 @@ def benchmark_keyframe_extraction_times(
 ):
     """
     Benchmark katna_keyframes_extraction and clip_chunk_keyframes_extraction.
-    Save results to TXT for plotting.
+    Print benchmark results to terminal.
     """
     root_dir = DATASET_CONFIG["root_dir"]
     if video_dir is None:
@@ -225,13 +224,6 @@ def benchmark_keyframe_extraction_times(
         keyframes_per_video = VIDEO_DESCRIPTOR_CONFIG.get("keyframes_per_video", 7)
 
     repo_root = Path(__file__).resolve().parent
-    if output_txt_path is None:
-        output_txt_path = os.path.join(
-            repo_root, f"keyframe_extraction_benchmark_{split}.txt"
-        )
-    elif not os.path.isabs(output_txt_path):
-        output_txt_path = os.path.join(repo_root, output_txt_path)
-    output_txt_path = os.path.abspath(output_txt_path)
 
     if not os.path.isdir(video_dir):
         raise FileNotFoundError(f"Video directory does not exist: {video_dir}")
@@ -245,23 +237,6 @@ def benchmark_keyframe_extraction_times(
         raise FileNotFoundError(
             "Benchmark output root does not exist (no auto-create): "
             f"{benchmark_output_root}"
-        )
-
-    txt_parent = os.path.dirname(os.path.abspath(output_txt_path)) or str(repo_root)
-    if not os.path.isdir(txt_parent):
-        raise FileNotFoundError(
-            "TXT parent directory does not exist (no auto-create): "
-            f"{txt_parent}"
-        )
-    if not os.access(txt_parent, os.W_OK):
-        raise PermissionError(
-            "No write permission for TXT parent directory: "
-            f"{txt_parent}. Pass --output-txt to a writable path."
-        )
-    if os.path.exists(output_txt_path) and not os.access(output_txt_path, os.W_OK):
-        raise PermissionError(
-            "No write permission for existing TXT file: "
-            f"{output_txt_path}. Remove it or pass --output-txt with a writable file."
         )
 
     rows = []
@@ -394,26 +369,16 @@ def benchmark_keyframe_extraction_times(
         "status",
         "error",
     ]
-    print(f"Saving benchmark results to TXT: {output_txt_path}")
-    try:
-        with open(output_txt_path, "w", encoding="utf-8") as txt_file:
-            txt_file.write("\t".join(fieldnames) + "\n")
-            for row in rows:
-                values = []
-                for field in fieldnames:
-                    value = str(row.get(field, ""))
-                    value = value.replace("\t", " ").replace("\n", " ")
-                    values.append(value)
-                txt_file.write("\t".join(values) + "\n")
-    except PermissionError as e:
-        raise PermissionError(
-            "Failed to write TXT due to permissions. "
-            f"Target: {output_txt_path}. "
-            "Use --output-txt with a writable file path."
-        ) from e
+    print("\t".join(fieldnames))
+    for row in rows:
+        values = []
+        for field in fieldnames:
+            value = str(row.get(field, ""))
+            values.append(value.replace("\t", " ").replace("\n", " "))
+        print("\t".join(values))
 
-    logging.info("Benchmark TXT saved to: %s", output_txt_path)
-    return output_txt_path
+    logging.info("Benchmark rows printed: %d", len(rows))
+    return rows
 
 
 def reorder_and_rename_images(directory_path):
