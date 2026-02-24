@@ -3,7 +3,6 @@ import glob
 import json
 import logging
 import os
-import shutil
 import time
 import traceback
 from datetime import datetime
@@ -154,8 +153,11 @@ def katna_keyframes_extraction(
     if output_dir is None:
         target_path = os.path.join(video_dir, video_base_name)
     else:
+        if not os.path.isdir(output_dir):
+            raise FileNotFoundError(
+                f"Output directory does not exist (no auto-create): {output_dir}"
+            )
         target_path = os.path.join(output_dir, video_base_name)
-        os.makedirs(output_dir, exist_ok=True)
 
     if (
         os.path.exists(target_path)
@@ -223,9 +225,10 @@ def benchmark_keyframe_extraction_times(
     if keyframes_per_video is None:
         keyframes_per_video = VIDEO_DESCRIPTOR_CONFIG.get("keyframes_per_video", 7)
 
+    repo_root = Path(__file__).resolve().parent
     if output_csv_path is None:
         output_csv_path = os.path.join(
-            root_dir, f"keyframe_extraction_benchmark_{split}.csv"
+            repo_root, f"keyframe_extraction_benchmark_{split}.csv"
         )
 
     if not os.path.isdir(video_dir):
@@ -235,9 +238,19 @@ def benchmark_keyframe_extraction_times(
     if max_videos is not None:
         video_ids = video_ids[: int(max_videos)]
 
-    benchmark_output_root = os.path.join(root_dir, "benchmark_keyframes", split)
-    os.makedirs(benchmark_output_root, exist_ok=True)
-    os.makedirs(os.path.dirname(os.path.abspath(output_csv_path)), exist_ok=True)
+    benchmark_output_root = os.path.join(repo_root, "benchmark_keyframes", split)
+    if not os.path.isdir(benchmark_output_root):
+        raise FileNotFoundError(
+            "Benchmark output root does not exist (no auto-create): "
+            f"{benchmark_output_root}"
+        )
+
+    csv_parent = os.path.dirname(os.path.abspath(output_csv_path)) or str(repo_root)
+    if not os.path.isdir(csv_parent):
+        raise FileNotFoundError(
+            "CSV parent directory does not exist (no auto-create): "
+            f"{csv_parent}"
+        )
 
     rows = []
     extractors = ("katna", "clip_chunk")
@@ -267,9 +280,42 @@ def benchmark_keyframe_extraction_times(
 
         for extractor in extractors:
             run_output_root = os.path.join(benchmark_output_root, extractor)
+            if not os.path.isdir(run_output_root):
+                rows.append(
+                    {
+                        "video_id": video_id,
+                        "video_file": video_file,
+                        "extractor": extractor,
+                        "elapsed_seconds": 0.0,
+                        "keyframes_requested": keyframes_per_video,
+                        "keyframes_generated": 0,
+                        "status": "missing_output_dir",
+                        "error": f"Missing extractor output dir: {run_output_root}",
+                    }
+                )
+                continue
+
             run_target_dir = os.path.join(run_output_root, Path(video_file).stem)
-            if os.path.exists(run_target_dir):
-                shutil.rmtree(run_target_dir, ignore_errors=True)
+            if not os.path.isdir(run_target_dir):
+                rows.append(
+                    {
+                        "video_id": video_id,
+                        "video_file": video_file,
+                        "extractor": extractor,
+                        "elapsed_seconds": 0.0,
+                        "keyframes_requested": keyframes_per_video,
+                        "keyframes_generated": 0,
+                        "status": "missing_video_output_dir",
+                        "error": f"Missing video output dir: {run_target_dir}",
+                    }
+                )
+                continue
+
+            # Keep directory structure untouched; only clear previous image outputs.
+            for old_file in os.listdir(run_target_dir):
+                old_path = os.path.join(run_target_dir, old_file)
+                if os.path.isfile(old_path):
+                    os.remove(old_path)
 
             out_path = ""
             generated = 0
@@ -320,8 +366,11 @@ def benchmark_keyframe_extraction_times(
                 }
             )
 
-            if cleanup_outputs and out_path and os.path.exists(out_path):
-                shutil.rmtree(out_path, ignore_errors=True)
+            if cleanup_outputs and out_path and os.path.isdir(out_path):
+                for old_file in os.listdir(out_path):
+                    old_path = os.path.join(out_path, old_file)
+                    if os.path.isfile(old_path):
+                        os.remove(old_path)
 
     fieldnames = [
         "video_id",
