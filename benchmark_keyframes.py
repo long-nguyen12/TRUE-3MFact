@@ -30,11 +30,6 @@ def main():
         default=None,
         help="Number of keyframes requested from each extractor",
     )
-    parser.add_argument(
-        "--keep-outputs",
-        action="store_true",
-        help="Keep extracted benchmark keyframes on disk",
-    )
     args = parser.parse_args()
 
     rows = benchmark_keyframe_extraction_times(
@@ -43,7 +38,6 @@ def main():
         annotation_path=args.annotation_path,
         max_videos=args.max_videos,
         keyframes_per_video=args.keyframes_per_video,
-        cleanup_outputs=not args.keep_outputs,
     )
     print(f"Total benchmark rows: {len(rows)}")
 
