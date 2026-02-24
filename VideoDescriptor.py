@@ -382,6 +382,7 @@ def benchmark_keyframe_extraction_times(
         "status",
         "error",
     ]
+    print(f"Saving benchmark results to CSV: {output_csv_path}")
     with open(output_csv_path, "w", newline="", encoding="utf-8") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
