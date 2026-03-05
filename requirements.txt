@@ -18,7 +18,7 @@ selenium==4.28.1
 scikit-image==0.25.2
 spacy==3.7.5
 tiktoken==0.7.0
-torch==2.4.0
+torch==2.6.0
 trafilatura==1.12.2
 transformers==4.57.3
 huggingface-hub
