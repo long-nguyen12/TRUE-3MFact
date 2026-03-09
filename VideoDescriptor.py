@@ -440,7 +440,7 @@ def process_folder_videos_with_logging():
         logger.info(f"Starting process_folder_videos at {log_timestamp}")
         logger.info(f"Log file: {log_file_path}")
 
-        # process_folder_videos()
+        process_folder_videos()
 
         logger.info("process_folder_videos completed successfully")
 
