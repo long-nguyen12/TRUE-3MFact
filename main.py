@@ -382,6 +382,7 @@ def main():
     json_files = sorted(
         [f for f in os.listdir(target_folder) if f.endswith(".json")], reverse=True
     )
+    print(f"Found {len(json_files)} JSON files to process.")
 
     count = 0
 

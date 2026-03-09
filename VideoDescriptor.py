@@ -138,6 +138,7 @@ def _generate_qwen_response(messages):
         outputs_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )[0]
 
+
 from Katna.video import Video
 from Katna.writer import KeyFrameDiskWriter
 from ClusterFrame.video import clip_chunk_keyframes_extraction
@@ -181,214 +182,6 @@ def katna_keyframes_extraction(
     reorder_and_rename_images(target_path)
 
     return target_path
-
-
-def _resolve_video_file(video_dir, video_id):
-    for ext in (".mp4", ".mkv", ".avi", ".mov"):
-        candidate = os.path.join(video_dir, f"{video_id}{ext}")
-        if os.path.exists(candidate):
-            return candidate
-    return None
-
-
-def _load_video_ids(annotation_path, video_dir):
-    if annotation_path and os.path.exists(annotation_path):
-        with open(annotation_path, "r", encoding="utf-8") as f:
-            return [line.strip() for line in f if line.strip()]
-
-    # Fallback: discover videos directly from the folder.
-    ids = []
-    for p in sorted(Path(video_dir).glob("*")):
-        if p.suffix.lower() in {".mp4", ".mkv", ".avi", ".mov"}:
-            ids.append(p.stem)
-    return ids
-
-
-def benchmark_keyframe_extraction_times(
-    output_csv_path=None,
-    split="test",
-    video_dir=None,
-    annotation_path=None,
-    max_videos=None,
-    keyframes_per_video=None,
-    cleanup_outputs=True,
-):
-    """
-    Benchmark katna_keyframes_extraction and clip_chunk_keyframes_extraction.
-    Save results to CSV for plotting.
-    """
-    root_dir = DATASET_CONFIG["root_dir"]
-    if video_dir is None:
-        video_dir = os.path.join(root_dir, DATASET_CONFIG["video_dir"][split])
-    if annotation_path is None:
-        annotation_path = os.path.join(root_dir, DATASET_CONFIG["annotation"][split])
-    if keyframes_per_video is None:
-        keyframes_per_video = VIDEO_DESCRIPTOR_CONFIG.get("keyframes_per_video", 7)
-
-    repo_root = Path(__file__).resolve().parent
-    if output_csv_path is None:
-        output_csv_path = os.path.join(
-            repo_root, f"keyframe_extraction_benchmark_{split}.csv"
-        )
-
-    if not os.path.isdir(video_dir):
-        raise FileNotFoundError(f"Video directory does not exist: {video_dir}")
-
-    video_ids = _load_video_ids(annotation_path, video_dir)
-    if max_videos is not None:
-        video_ids = video_ids[: int(max_videos)]
-
-    benchmark_output_root = os.path.join(repo_root, "benchmark_keyframes", split)
-    if not os.path.isdir(benchmark_output_root):
-        raise FileNotFoundError(
-            "Benchmark output root does not exist (no auto-create): "
-            f"{benchmark_output_root}"
-        )
-
-    csv_parent = os.path.dirname(os.path.abspath(output_csv_path)) or str(repo_root)
-    if not os.path.isdir(csv_parent):
-        raise FileNotFoundError(
-            "CSV parent directory does not exist (no auto-create): "
-            f"{csv_parent}"
-        )
-
-    rows = []
-    extractors = ("katna", "clip_chunk")
-
-    for idx, video_id in enumerate(video_ids, start=1):
-        logging.info(
-            "Benchmarking keyframe extractors for video %s (%d/%d)",
-            video_id,
-            idx,
-            len(video_ids),
-        )
-        video_file = _resolve_video_file(video_dir, video_id)
-        if not video_file:
-            rows.append(
-                {
-                    "video_id": video_id,
-                    "video_file": "",
-                    "extractor": "",
-                    "elapsed_seconds": 0.0,
-                    "keyframes_requested": keyframes_per_video,
-                    "keyframes_generated": 0,
-                    "status": "missing_video",
-                    "error": "Video file not found",
-                }
-            )
-            continue
-
-        for extractor in extractors:
-            run_output_root = os.path.join(benchmark_output_root, extractor)
-            if not os.path.isdir(run_output_root):
-                rows.append(
-                    {
-                        "video_id": video_id,
-                        "video_file": video_file,
-                        "extractor": extractor,
-                        "elapsed_seconds": 0.0,
-                        "keyframes_requested": keyframes_per_video,
-                        "keyframes_generated": 0,
-                        "status": "missing_output_dir",
-                        "error": f"Missing extractor output dir: {run_output_root}",
-                    }
-                )
-                continue
-
-            run_target_dir = os.path.join(run_output_root, Path(video_file).stem)
-            if not os.path.isdir(run_target_dir):
-                rows.append(
-                    {
-                        "video_id": video_id,
-                        "video_file": video_file,
-                        "extractor": extractor,
-                        "elapsed_seconds": 0.0,
-                        "keyframes_requested": keyframes_per_video,
-                        "keyframes_generated": 0,
-                        "status": "missing_video_output_dir",
-                        "error": f"Missing video output dir: {run_target_dir}",
-                    }
-                )
-                continue
-
-            # Keep directory structure untouched; only clear previous image outputs.
-            for old_file in os.listdir(run_target_dir):
-                old_path = os.path.join(run_target_dir, old_file)
-                if os.path.isfile(old_path):
-                    os.remove(old_path)
-
-            out_path = ""
-            generated = 0
-            status = "ok"
-            error = ""
-            start = time.perf_counter()
-
-            try:
-                if extractor == "katna":
-                    out_path = katna_keyframes_extraction(
-                        video_file,
-                        keyframes_per_video,
-                        output_dir=run_output_root,
-                    )
-                else:
-                    out_path = clip_chunk_keyframes_extraction(
-                        video_file_path=video_file,
-                        chunk_count=keyframes_per_video,
-                        output_dir=run_output_root,
-                    )
-
-                if out_path and os.path.exists(out_path):
-                    generated = len(
-                        [
-                            f
-                            for f in os.listdir(out_path)
-                            if f.lower().endswith((".jpeg", ".jpg", ".png"))
-                        ]
-                    )
-            except Exception as e:
-                status = "error"
-                error = str(e)
-                logging.error(
-                    "Benchmark failed for %s (%s): %s", video_id, extractor, e
-                )
-            elapsed = time.perf_counter() - start
-
-            rows.append(
-                {
-                    "video_id": video_id,
-                    "video_file": video_file,
-                    "extractor": extractor,
-                    "elapsed_seconds": round(elapsed, 6),
-                    "keyframes_requested": keyframes_per_video,
-                    "keyframes_generated": generated,
-                    "status": status,
-                    "error": error,
-                }
-            )
-
-            if cleanup_outputs and out_path and os.path.isdir(out_path):
-                for old_file in os.listdir(out_path):
-                    old_path = os.path.join(out_path, old_file)
-                    if os.path.isfile(old_path):
-                        os.remove(old_path)
-
-    fieldnames = [
-        "video_id",
-        "video_file",
-        "extractor",
-        "elapsed_seconds",
-        "keyframes_requested",
-        "keyframes_generated",
-        "status",
-        "error",
-    ]
-    with open(output_csv_path, "w", newline="", encoding="utf-8") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-
-    logging.info("Benchmark CSV saved to: %s", output_csv_path)
-    return output_csv_path
 
 
 def reorder_and_rename_images(directory_path):
@@ -482,7 +275,7 @@ def pipe_prompt_2_only_accuracy(video_file_path, image_folder_path):
 
     gpt_summary_answer = gpt_summary(video_summary_answer, key_frame_summary)
     all_answers["LLM"]["answer"] = gpt_summary_answer
-    
+
     return all_answers
 
 
@@ -518,6 +311,7 @@ def process_folder_videos():
                 continue
 
             data_folder = os.path.join(test_video_dir, str(video_id))
+            data_output_folder = os.path.join(test_VD_result_dir, str(video_id))
 
             if not os.path.exists(data_folder):
                 os.makedirs(data_folder)
@@ -539,7 +333,9 @@ def process_folder_videos():
                     )
                 else:
                     keyframes_folder = clip_chunk_keyframes_extraction(
-                        video_file_path=video_file, chunk_count=no_of_frames_to_returned
+                        video_file_path=video_file,
+                        chunk_count=no_of_frames_to_returned,
+                        output_dir=data_output_folder,
                     )
                 logging.info(f"Keyframes extracted successfully for video: {video_id}")
             except Exception as e:
@@ -628,10 +424,10 @@ def process_folder_videos_with_logging():
 
     try:
         os.makedirs(test_video_dir, exist_ok=True)
+        print(f"Log directory ensured at: {test_video_dir}")
     except Exception as e:
         print(f"Error creating log directory: {e}")
-        
-        
+
     file_handler = logging.FileHandler(log_file_path)
     formatter = TimeZoneFormatter(
         "%(asctime)s - %(threadName)s - %(levelname)s - %(message)s"
