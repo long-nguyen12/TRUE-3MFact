@@ -1,3 +1,4 @@
+import csv
 import glob
 import json
 import logging
@@ -204,6 +205,7 @@ def _load_video_ids(annotation_path, video_dir):
 
 
 def benchmark_keyframe_extraction_times(
+    output_csv_path=None,
     split="test",
     video_dir=None,
     annotation_path=None,
@@ -213,7 +215,7 @@ def benchmark_keyframe_extraction_times(
 ):
     """
     Benchmark katna_keyframes_extraction and clip_chunk_keyframes_extraction.
-    Print benchmark results to terminal.
+    Save results to CSV for plotting.
     """
     root_dir = DATASET_CONFIG["root_dir"]
     if video_dir is None:
@@ -224,6 +226,10 @@ def benchmark_keyframe_extraction_times(
         keyframes_per_video = VIDEO_DESCRIPTOR_CONFIG.get("keyframes_per_video", 7)
 
     repo_root = Path(__file__).resolve().parent
+    if output_csv_path is None:
+        output_csv_path = os.path.join(
+            repo_root, f"keyframe_extraction_benchmark_{split}.csv"
+        )
 
     if not os.path.isdir(video_dir):
         raise FileNotFoundError(f"Video directory does not exist: {video_dir}")
@@ -237,6 +243,13 @@ def benchmark_keyframe_extraction_times(
         raise FileNotFoundError(
             "Benchmark output root does not exist (no auto-create): "
             f"{benchmark_output_root}"
+        )
+
+    csv_parent = os.path.dirname(os.path.abspath(output_csv_path)) or str(repo_root)
+    if not os.path.isdir(csv_parent):
+        raise FileNotFoundError(
+            "CSV parent directory does not exist (no auto-create): "
+            f"{csv_parent}"
         )
 
     rows = []
@@ -369,16 +382,13 @@ def benchmark_keyframe_extraction_times(
         "status",
         "error",
     ]
-    print("\t".join(fieldnames))
-    for row in rows:
-        values = []
-        for field in fieldnames:
-            value = str(row.get(field, ""))
-            values.append(value.replace("\t", " ").replace("\n", " "))
-        print("\t".join(values))
+    with open(output_csv_path, "w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
 
-    logging.info("Benchmark rows printed: %d", len(rows))
-    return rows
+    logging.info("Benchmark CSV saved to: %s", output_csv_path)
+    return output_csv_path
 
 
 def reorder_and_rename_images(directory_path):
@@ -616,8 +626,12 @@ def process_folder_videos_with_logging():
     log_file_name = f"process_folder_videos_{log_timestamp}.log"
     log_file_path = os.path.join(test_video_dir, log_file_name)
 
-    os.makedirs(test_video_dir, exist_ok=True)
-
+    try:
+        os.makedirs(test_video_dir, exist_ok=True)
+    except Exception as e:
+        print(f"Error creating log directory: {e}")
+        
+        
     file_handler = logging.FileHandler(log_file_path)
     formatter = TimeZoneFormatter(
         "%(asctime)s - %(threadName)s - %(levelname)s - %(message)s"
@@ -630,7 +644,7 @@ def process_folder_videos_with_logging():
         logger.info(f"Starting process_folder_videos at {log_timestamp}")
         logger.info(f"Log file: {log_file_path}")
 
-        process_folder_videos()
+        # process_folder_videos()
 
         logger.info("process_folder_videos completed successfully")
 
