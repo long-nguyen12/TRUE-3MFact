@@ -1,7 +1,7 @@
 import json
 import regex
 import requests
-from local_llm.llms import initialize, run_llama, run_deepseek
+from local_llm.llms import initialize, run_llama, run_deepseek, run_qwen
 from Config import MODEL_CONFIG
 
 
@@ -37,7 +37,7 @@ def local_llm_analysis(model, tokenizer, prompt):
         {"role": "user", "content": prompt},
     ]
 
-    response = run_llama(model, tokenizer, messages)
+    response = run_qwen(model, tokenizer, messages)
     
     return response
 
