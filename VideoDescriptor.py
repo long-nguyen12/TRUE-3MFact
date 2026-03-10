@@ -343,7 +343,7 @@ def process_folder_videos():
                     f"Failed to extract keyframes for video {video_id}: {str(e)}"
                 )
                 continue
-            keyframes_folder = data_output_folder
+            keyframes_folder = data_folder
             descriptor_result = pipe_prompt_2_only_accuracy(
                 video_file, keyframes_folder
             )
