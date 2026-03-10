@@ -37,7 +37,7 @@ def local_llm_analysis(model, tokenizer, prompt):
         {"role": "user", "content": prompt},
     ]
 
-    response = run_qwen(model, tokenizer, messages)
+    response = run_llama(model, tokenizer, messages)
     
     return response
 
