@@ -373,12 +373,12 @@ def main():
     set_qwen_model(tokenizer, model)
     print("Model loaded successfully.")
     print("Starting video processing...")
-    # process_folder_videos_with_logging()
+    process_folder_videos_with_logging()
     print("Video processing completed. Starting claim verification...")
 
     root_dir = DATASET_CONFIG["root_dir"]
     target_folder = os.path.join(root_dir, DATASET_CONFIG["video_dir"]["test"])
-
+    print(f"Looking for JSON files in: {target_folder}")
     json_files = sorted(
         [f for f in os.listdir(target_folder) if f.endswith(".json")], reverse=True
     )
