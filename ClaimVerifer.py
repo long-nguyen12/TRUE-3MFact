@@ -10,7 +10,7 @@ def process_claim_verifier(
     model, tokenizer, Claim, Video_information, QA_CONTEXTS, output_file_path
 ):
 
-    logging.warning("\n" * 5)
+    logging.warning("\n")
 
     logging.warning("----------------------------------")
     logging.warning("--------- Claim Verifier ---------")
