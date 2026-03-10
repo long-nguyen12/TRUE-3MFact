@@ -343,17 +343,22 @@ def process_folder_videos():
                     f"Failed to extract keyframes for video {video_id}: {str(e)}"
                 )
                 continue
-
+            keyframes_folder = data_output_folder
             descriptor_result = pipe_prompt_2_only_accuracy(
                 video_file, keyframes_folder
             )
             print(f"Descriptor result for video {video_id}: {descriptor_result}")
 
-            with open(original_output_path, "w", encoding="utf-8-sig") as f:
-                json.dump(
-                    {"Zero-Shot Detailed Inquiry Prompt": descriptor_result},
-                    f,
-                    indent=4,
+            try:
+                with open(original_output_path, "w", encoding="utf-8-sig") as f:
+                    json.dump(
+                        {"Zero-Shot Detailed Inquiry Prompt": descriptor_result},
+                        f,
+                        indent=4,
+                    )
+            except Exception as e:
+                print(
+                    f"Error saving original descriptor result for video {video_id}: {str(e)}"
                 )
 
             original_json_path = os.path.join(test_data_dir, f"{video_id}.json")
