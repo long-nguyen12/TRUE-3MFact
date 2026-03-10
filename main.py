@@ -377,7 +377,7 @@ def main():
     print("Video processing completed. Starting claim verification...")
 
     root_dir = DATASET_CONFIG["root_dir"]
-    target_folder = os.path.join(root_dir, DATASET_CONFIG["test_output"]["test"])
+    target_folder = os.path.join(root_dir, DATASET_CONFIG["output_dir"]["test"])
     print(f"Looking for JSON files in: {target_folder}")
     json_files = sorted(
         [f for f in os.listdir(target_folder) if f.endswith(".json")], reverse=True
