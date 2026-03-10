@@ -386,12 +386,17 @@ def process_folder_videos():
                 logging.info(
                     f"----------------------------- Analysis for {video_id} completed successfully -----------------------------"
                 )
+                print(
+                    f"----------------------------- Analysis for {video_id} completed successfully -----------------------------"
+                )
 
             except Exception as e:
+                print(f"Error processing JSON for video {video_id}: {str(e)}")
                 logging.error(f"Error processing JSON for video {video_id}: {str(e)}")
                 continue
 
         except Exception as e:
+            print(f"Error processing video {video_id}: {str(e)}")
             logging.error(f"Error processing video {video_id}: {str(e)}")
             continue
 
