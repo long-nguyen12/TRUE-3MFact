@@ -350,7 +350,7 @@ def process_folder_videos():
             print(f"Descriptor result for video {video_id}: {descriptor_result}")
 
             try:
-                with open(original_output_path, "w", encoding="utf-8-sig") as f:
+                with open(original_output_path, "w", encoding="utf-8") as f:
                     json.dump(
                         {"Zero-Shot Detailed Inquiry Prompt": descriptor_result},
                         f,
@@ -363,7 +363,7 @@ def process_folder_videos():
 
             original_json_path = os.path.join(test_data_dir, f"{video_id}.json")
             try:
-                with open(original_json_path, "r", encoding="utf-8-sig") as f:
+                with open(original_json_path, "r", encoding="utf-8") as f:
                     original_data = json.load(f)
 
                 video_info = original_data.get("video_information", {})
