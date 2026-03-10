@@ -113,24 +113,21 @@ def run_llama(model, tokenizer, prompt):
 
     print("Generating response...")
     start_time = time.time()
+    pad_token_id = (
+        tokenizer.eos_token_id if tokenizer.eos_token_id is not None else None
+    )
     outputs = model.generate(
         **inputs,
         max_new_tokens=512,
         temperature=0.7,
         do_sample=True,
+        pad_token_id=pad_token_id,
     )
     end_time = time.time() - start_time
     print(f"Generation completed in {end_time:.2f} seconds.")
 
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-    # Extract just the assistant's response
-    if "assistant" in response:
-        parts = response.split("assistant")
-        if len(parts) > 1:
-            response = parts[-1].strip()
-            # Remove leading colons or newlines
-            response = response.lstrip(":\n").strip()
+    generated_ids = outputs[0][inputs["input_ids"].shape[-1] :]
+    response = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
 
     return response
 
