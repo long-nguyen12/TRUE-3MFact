@@ -36,8 +36,9 @@ def local_llm_analysis(model, tokenizer, prompt):
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": prompt},
     ]
-
+    print(f"Running local LLM analysis with prompt: {messages}")
     response = run_llama(model, tokenizer, messages)
+    
     return response
 
 

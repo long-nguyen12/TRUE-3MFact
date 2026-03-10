@@ -347,7 +347,6 @@ def process_folder_videos():
             descriptor_result = pipe_prompt_2_only_accuracy(
                 video_file, keyframes_folder
             )
-            print(f"Descriptor result for video {video_id}: {descriptor_result}")
 
             try:
                 with open(original_output_path, "w", encoding="utf-8") as f:

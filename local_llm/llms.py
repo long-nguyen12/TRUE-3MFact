@@ -102,13 +102,13 @@ def initialize(model_name, model_size):
         return processor, model
 
 
-def run_llama(model, tokenizer, prompt, model_size="1B"):
+def run_llama(model, tokenizer, prompt):
     messages = [{"role": "user", "content": prompt}]
 
     input_text = tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True
     )
-
+    print(f"Formatted input text for LLaMA: {input_text}")
     inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
 
     print("Generating response...")
