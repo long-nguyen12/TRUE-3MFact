@@ -138,7 +138,7 @@ Please process the input content and provide the output in the specified JSON st
             "Initial_Question_Generation", {}
         ).get("Secondary_Questions", {})
 
-        result = check_usefulness(Claim, Video_information, primary_question_answer)
+        result = check_usefulness(model, tokenizer, Claim, Video_information, primary_question_answer)
 
         if result:
             logging.info("Generated question is useful.")
@@ -253,7 +253,7 @@ def generate_follow_up_question(
         )
         logging.info(follow_up_question_answer)
 
-        result = check_usefulness(Claim, Video_information, follow_up_question_answer)
+        result = check_usefulness(model, tokenizer, Claim, Video_information, follow_up_question_answer)
 
         if result:
             logging.info("Generated follow-up question is useful.")
