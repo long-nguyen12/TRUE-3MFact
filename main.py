@@ -373,7 +373,7 @@ def main():
     set_qwen_model(qwen_tokenizer, qwen_model)
     print("Model loaded successfully.")
     print("Starting video processing...")
-    # process_folder_videos_with_logging()
+    process_folder_videos_with_logging()
     print("Video processing completed. Starting claim verification...")
 
     root_dir = DATASET_CONFIG["root_dir"]
