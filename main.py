@@ -368,7 +368,7 @@ def process_with_timeout(
 
 
 def main():
-    tokenizer, model = initialize("LLaMA", "1B")
+    tokenizer, model = initialize("Qwen3.5", "2B")
     qwen_tokenizer, qwen_model = initialize("Qwen", "3B")
     set_qwen_model(qwen_tokenizer, qwen_model)
     print("Model loaded successfully.")

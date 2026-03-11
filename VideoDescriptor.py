@@ -327,16 +327,16 @@ def process_folder_videos():
                     "keyframe_extractor", "clip_chunk"
                 ).lower()
 
-                # if extractor == "katna":
-                #     keyframes_folder = katna_keyframes_extraction(
-                #         video_file, no_of_frames_to_returned
-                #     )
-                # else:
-                #     keyframes_folder = clip_chunk_keyframes_extraction(
-                #         video_file_path=video_file,
-                #         chunk_count=no_of_frames_to_returned,
-                #         output_dir=data_output_folder,
-                #     )
+                if extractor == "katna":
+                    keyframes_folder = katna_keyframes_extraction(
+                        video_file, no_of_frames_to_returned
+                    )
+                else:
+                    keyframes_folder = clip_chunk_keyframes_extraction(
+                        video_file_path=video_file,
+                        chunk_count=no_of_frames_to_returned,
+                        output_dir=data_output_folder,
+                    )
                 logging.info(f"Keyframes extracted successfully for video: {video_id}")
             except Exception as e:
                 logging.error(
