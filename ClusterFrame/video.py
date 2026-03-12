@@ -4,7 +4,12 @@ from pathlib import Path
 
 import cv2
 import torch
-from transformers import CLIPImageProcessor, CLIPVisionModel
+from transformers import (
+    CLIPImageProcessor,
+    CLIPVisionModel,
+    CLIPVisionModelWithProjection,
+    AutoProcessor,
+)
 from sklearn.cluster import SpectralClustering
 
 
@@ -33,8 +38,11 @@ def reorder_and_rename_images(directory_path):
 
 
 def _load_clip_vision(model_name):
-    processor = CLIPImageProcessor.from_pretrained(model_name)
-    model = CLIPVisionModel.from_pretrained(model_name)
+    processor = AutoProcessor.from_pretrained(model_name)
+    model = CLIPVisionModelWithProjection.from_pretrained(
+        model_name, ignore_mismatched_sizes=True
+    )
+    # model = CLIPVisionModel.from_pretrained(model_name)
     model.eval()
     return processor, model
 
