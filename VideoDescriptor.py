@@ -7,6 +7,7 @@ import time
 import traceback
 from datetime import datetime
 from pathlib import Path
+import torch
 
 try:
     import pytz
@@ -141,7 +142,7 @@ def _generate_qwen_response(messages):
 
 from Katna.video import Video
 from Katna.writer import KeyFrameDiskWriter
-from ClusterFrame.video import clip_chunk_keyframes_extraction
+from ClusterFrame.video import clip_chunk_keyframes_extraction, _load_clip_vision
 
 
 def katna_keyframes_extraction(
@@ -294,6 +295,15 @@ def process_folder_videos():
     with open(test_annotation, "r") as f:
         video_ids = [line.strip() for line in f if line.strip()]
 
+    no_of_frames_to_returned = VIDEO_DESCRIPTOR_CONFIG.get("keyframes_per_video", 7)
+    extractor = VIDEO_DESCRIPTOR_CONFIG.get("keyframe_extractor", "clip_chunk").lower()
+    if extractor != "katna":
+        logging.info("Preloading CLIP model for keyframe extraction...")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        processor, model = _load_clip_vision()
+        model.to(device)
+        logging.info("CLIP model loaded successfully.")
+
     for i, video_id in enumerate(video_ids):
         try:
             logging.info(f"Processing video {i+1}/{len(video_ids)}: {video_id}")
@@ -320,13 +330,6 @@ def process_folder_videos():
             logging.info(f"Extracting keyframes for video: {video_id}")
             try:
                 print(f"Extracting keyframes for video: {video_id}")
-                no_of_frames_to_returned = VIDEO_DESCRIPTOR_CONFIG.get(
-                    "keyframes_per_video", 7
-                )
-                extractor = VIDEO_DESCRIPTOR_CONFIG.get(
-                    "keyframe_extractor", "clip_chunk"
-                ).lower()
-
                 if extractor == "katna":
                     keyframes_folder = katna_keyframes_extraction(
                         video_file, no_of_frames_to_returned
@@ -336,6 +339,9 @@ def process_folder_videos():
                         video_file_path=video_file,
                         chunk_count=no_of_frames_to_returned,
                         output_dir=data_output_folder,
+                        model=model,
+                        processor=processor,
+                        device=device,
                     )
                 logging.info(f"Keyframes extracted successfully for video: {video_id}")
             except Exception as e:

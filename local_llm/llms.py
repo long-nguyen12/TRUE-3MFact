@@ -15,6 +15,9 @@ from transformers import (
     AutoProcessor,
     AutoModelForImageTextToText,
 )
+from transformers import logging
+
+logging.set_verbosity_error()
 
 try:
     from dotenv import load_dotenv
@@ -321,12 +324,12 @@ if __name__ == "__main__":
     try:
         prompt = "Explain machine learning in 2 sentences."
         system_prompt = "You are a professional fact-checker."
-        
+
         print("Waiting for model load...")
         time.sleep(2)
-        
+
         response = run_qwen_text(model, processor, prompt, system_prompt=system_prompt)
-        
+
         print(f"\nResponse:\n{response}\n")
     except Exception as e:
         print(f"Error running Qwen3.5: {e}")

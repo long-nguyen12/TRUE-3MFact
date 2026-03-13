@@ -37,7 +37,7 @@ def reorder_and_rename_images(directory_path):
     logging.info("Images have been renamed successfully.")
 
 
-def _load_clip_vision(model_name):
+def _load_clip_vision(model_name="openai/clip-vit-base-patch32"):
     processor = AutoProcessor.from_pretrained(model_name)
     model = CLIPVisionModelWithProjection.from_pretrained(
         model_name, ignore_mismatched_sizes=True
@@ -101,11 +101,14 @@ def clip_chunk_keyframes_extraction(
     video_file_path,
     chunk_count=10,
     samples_per_chunk=8,
-    model_name="openai/clip-vit-base-patch32",
     spectral_clusters=2,
     output_dir=None,
+    model=None,
+    processor=None,
+    device=None,
 ):
     logging.info(f"Extract keyframes using CLIP for video: {video_file_path}")
+    print(f"Extract keyframes using CLIP for video: {video_file_path}")
     video_path = Path(video_file_path)
     if output_dir is None:
         target_path = video_path.parent / video_path.stem
@@ -127,10 +130,6 @@ def clip_chunk_keyframes_extraction(
 
     chunk_count = min(chunk_count, total_frames)
     chunk_size = total_frames / chunk_count
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    processor, model = _load_clip_vision(model_name)
-    model.to(device)
 
     target_path.mkdir(parents=True, exist_ok=True)
     saved = 0
