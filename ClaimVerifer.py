@@ -9,7 +9,6 @@ from LLM_Call import local_llm_analysis, extract_complete_json
 def process_claim_verifier(
     model, tokenizer, Claim, Video_information, QA_CONTEXTS, output_file_path
 ):
-    print(f"Processing claim verifier for Claim: {Claim}, Video_information: {Video_information}, QA_CONTEXTS: {QA_CONTEXTS}")
 
     logging.warning("\n")
 

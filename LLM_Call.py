@@ -32,13 +32,14 @@ def gpt_mini_analysis(prompt):
 
 
 def local_llm_analysis(model, tokenizer, prompt):
-    print(f"Running local LLM analysis with prompt: {prompt}")
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": prompt},
     ]
 
-    response = run_qwen_text(model, tokenizer, messages)
+    response = run_qwen_text(
+        model, tokenizer, prompt, system_prompt="You are a helpful assistant."
+    )
 
     return response
 
