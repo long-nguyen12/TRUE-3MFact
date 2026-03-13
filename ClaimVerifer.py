@@ -30,10 +30,13 @@ def process_claim_verifier(
   "Output_Format": {{
     "CVResult": {{
       "Judgment": "Yes or No",
-      "Confidence": "0%~100%",
+      "Confidence": "<string: 'X%'>",
       "Reason": "Detailed explanation for the judgment, including specific evidence from the provided information that explains why the information is sufficient or insufficient to determine the accuracy of the Claim"
     }}
-  }}
+  }},
+   "Constraints": [
+    "Confidence MUST be a string in the format 'X%' where X is an integer 0-100 (e.g., '85%', not 85 or 'high')"
+  ]
 }}
 """
 
@@ -54,9 +57,12 @@ The desired JSON structure:
 {{
   "CVResult": {{
     "Judgment": "Yes or No",
-    "Confidence": "0%~100%",
+    "Confidence": "<string: 'X%'>",
     "Reason": "Concise explanation for the judgment"
-  }}
+  }},
+   "Constraints": [
+    "Confidence MUST be a string in the format 'X%' where X is an integer 0-100 (e.g., '85%', not 85 or 'high')"
+  ]
 }}
 
 The content to be converted:
