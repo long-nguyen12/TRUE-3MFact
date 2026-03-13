@@ -28,6 +28,7 @@ from QuestionManager import *
 from InformationRetriever import *
 from Reasoner import *
 from Config import PIPELINE_CONFIG, CLAIM_VERIFIER_CONFIG, DATASET_CONFIG
+import argparse
 
 
 class TimeZoneFormatter(logging.Formatter):
@@ -367,14 +368,15 @@ def process_with_timeout(
         event.set()
 
 
-def main():
+def main(args):
     tokenizer, model = initialize("Qwen3.5", "2B")
     qwen_tokenizer, qwen_model = initialize("Qwen", "3B")
     set_qwen_model(qwen_tokenizer, qwen_model)
     print("Model loaded successfully.")
-    print("Starting video processing...")
-    process_folder_videos_with_logging()
-    print("Video processing completed. Starting claim verification...")
+    if not args.skip:
+        print("Starting video processing...")
+        process_folder_videos_with_logging()
+        print("Video processing completed. Starting claim verification...")
 
     root_dir = DATASET_CONFIG["root_dir"]
     target_folder = os.path.join(root_dir, DATASET_CONFIG["output_dir"]["test"])
@@ -461,9 +463,14 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="TRUE-3MFact Pipeline")
+    parser.add_argument("--config", type=str, help="Path to config file", default=None)
+    parser.add_argument("--skip", type=bool, help="Whether to skip video processing", default=True)
+    args = parser.parse_args()
+    
     for attempt in range(3):
         try:
-            main()
+            main(args)
             break
         except Exception as e:
             print("Terminated")
