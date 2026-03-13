@@ -130,9 +130,11 @@ def process_claim_verification(
         json.dump(data, file, indent=4)
 
     try:
+        stage_start = time.perf_counter()
         judgment, confidence = process_claim_verifier(
             model, tokenizer, Claim, Video_information, QA_CONTEXTS, CV_output_file_path
         )
+        print("process_claim_verifier took %.2fs" % (time.perf_counter() - stage_start))
         logging.info(
             "process_claim_verifier result - Judgment: %s, Confidence: %s",
             judgment,
@@ -156,6 +158,7 @@ def process_claim_verification(
 
             while not is_now_QA_useful and attempts < max_attempts:
                 try:
+                    stage_start = time.perf_counter()
                     key, primary_question, secondary_questions = (
                         generate_initial_question(
                             model,
@@ -164,6 +167,10 @@ def process_claim_verification(
                             Video_information,
                             CV_output_file_path,
                         )
+                    )
+                    print(
+                        "generate_initial_question took %.2fs"
+                        % (time.perf_counter() - stage_start)
                     )
 
                     logging.info("Generated Initial Question: %s", primary_question)
@@ -189,14 +196,23 @@ def process_claim_verification(
                         IR_output_file_path,
                         video_id,
                     )
+                    print(
+                        "information_retriever_complete took %.2fs"
+                        % (time.perf_counter() - stage_start)
+                    )
                     logging.info("IR results saved to: %s", IR_output_file_path)
 
                     with open(IR_output_file_path, "r", encoding="utf-8") as file:
                         data = json.load(file)
                         newest_QA_Context = data["QA"]
 
+                    stage_start = time.perf_counter()
                     is_now_QA_useful = get_validator_result(
                         model, tokenizer, Claim, Video_information, newest_QA_Context
+                    )
+                    print(
+                        "get_validator_result took %.2fs"
+                        % (time.perf_counter() - stage_start)
                     )
 
                     attempts += 1
@@ -259,6 +275,7 @@ def process_claim_verification(
 
             while not is_now_QA_useful and attempts < max_attempts:
                 try:
+                    stage_start = time.perf_counter()
                     new_key, follow_up_question = generate_follow_up_question(
                         model,
                         tokenizer,
@@ -267,6 +284,10 @@ def process_claim_verification(
                         new_QA_CONTEXTS,
                         secondary_questions,
                         CV_output_file_path,
+                    )
+                    print(
+                        "generate_follow_up_question took %.2fs"
+                        % (time.perf_counter() - stage_start)
                     )
                     logging.info(
                         "%s Generated Question: %s", new_key, follow_up_question
@@ -295,6 +316,10 @@ def process_claim_verification(
                         IR_output_file_path,
                         video_id,
                     )
+                    print(
+                        "information_retriever_complete took %.2fs"
+                        % (time.perf_counter() - stage_start)
+                    )
 
                     logging.info("IR results saved to: %s", IR_output_file_path)
 
@@ -302,8 +327,13 @@ def process_claim_verification(
                         data = json.load(file)
                         newest_QA_Context = data["QA"]
 
+                    stage_start = time.perf_counter()
                     is_now_QA_useful = get_validator_result(
                         model, tokenizer, Claim, Video_information, newest_QA_Context
+                    )
+                    print(
+                        "get_validator_result took %.2fs"
+                        % (time.perf_counter() - stage_start)
                     )
 
                     attempts += 1
@@ -325,6 +355,7 @@ def process_claim_verification(
                 )
 
         new_QA_CONTEXTS = extract_qa_contexts(CV_output_file_path)
+        stage_start = time.perf_counter()
         final_json_answer = process_claim_final(
             model,
             tokenizer,
@@ -333,6 +364,7 @@ def process_claim_verification(
             new_QA_CONTEXTS,
             CV_output_file_path,
         )
+        print("process_claim_final took %.2fs" % (time.perf_counter() - stage_start))
         logging.info("final_json_answer \n%s", final_json_answer)
 
     except Exception as e:
@@ -370,14 +402,14 @@ def process_with_timeout(
 
 def main(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    
+
     tokenizer, model = initialize("Qwen3.5", "2B")
     qwen_tokenizer, qwen_model = initialize("Qwen", "3B")
     model = model.to(device)
     qwen_model = qwen_model.to(device)
     set_qwen_model(qwen_tokenizer, qwen_model)
     print("Model loaded successfully.")
-    
+
     if not args.skip:
         print("Starting video processing...")
         process_folder_videos_with_logging()

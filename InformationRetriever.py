@@ -229,16 +229,16 @@ def google_search(question):
         return response.text
 
     except requests.exceptions.RequestException as e:
-        print(f"请求发生错误: {str(e)}")
-        logging.error(f"请求发生错误: {str(e)}")
+        print(f"An error occurred during the request: {str(e)}")
+        logging.error(f"An error occurred during the request: {str(e)}")
         return None
     except ValueError as e:
-        print(f"JSON解析错误: {str(e)}")
-        logging.error(f"JSON解析错误: {str(e)}")
+        print(f"JSON parsing error: {str(e)}")
+        logging.error(f"JSON parsing error: {str(e)}")
         return None
     except Exception as e:
-        print(f"发生未知错误: {str(e)}")
-        logging.error(f"发生未知错误: {str(e)}")
+        print(f"An unknown error occurred: {str(e)}")
+        logging.error(f"An unknown error occurred: {str(e)}")
         return None
 
 
@@ -1835,4 +1835,4 @@ def process_json_files(folder_path, output_file_path):
     with open(output_file_path, "w", encoding="utf-8") as output_file:
         json.dump(existing_data, output_file, ensure_ascii=False, indent=4)
 
-    print(f"结果已追加写入 {output_file_path}")
+    print(f"The results have been appended to {output_file_path}")

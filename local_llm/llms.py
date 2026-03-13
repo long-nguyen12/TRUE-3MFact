@@ -270,7 +270,6 @@ def run_qwen_text(model, processor, prompt, system_prompt=None, max_tokens=512):
     Generates a response using a Qwen model.
     """
     try:
-        print("Generating response on device:", model.device)
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -302,8 +301,6 @@ def run_qwen_text(model, processor, prompt, system_prompt=None, max_tokens=512):
         response = processor.decode(
             generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True
         ).strip()
-
-        print(f"Response length: {len(response)} chars")
         return response
 
     except Exception as e:
