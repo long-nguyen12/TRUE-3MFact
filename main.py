@@ -369,10 +369,15 @@ def process_with_timeout(
 
 
 def main(args):
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    
     tokenizer, model = initialize("Qwen3.5", "2B")
     qwen_tokenizer, qwen_model = initialize("Qwen", "3B")
+    model = model.to(device)
+    qwen_model = qwen_model.to(device)
     set_qwen_model(qwen_tokenizer, qwen_model)
     print("Model loaded successfully.")
+    
     if not args.skip:
         print("Starting video processing...")
         process_folder_videos_with_logging()
@@ -465,9 +470,11 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TRUE-3MFact Pipeline")
     parser.add_argument("--config", type=str, help="Path to config file", default=None)
-    parser.add_argument("--skip", type=bool, help="Whether to skip video processing", default=True)
+    parser.add_argument(
+        "--skip", type=bool, help="Whether to skip video processing", default=True
+    )
     args = parser.parse_args()
-    
+
     for attempt in range(3):
         try:
             main(args)
