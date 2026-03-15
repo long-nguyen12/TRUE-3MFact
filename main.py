@@ -472,7 +472,7 @@ def main(args):
             logger.addHandler(file_handler)
 
             timeout_event = threading.Event()
-            timeout_minutes = 13
+            timeout_minutes = 30
 
             process_with_timeout(
                 model,
@@ -503,9 +503,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TRUE-3MFact Pipeline")
-    parser.add_argument("--config", type=str, help="Path to config file", default=None)
     parser.add_argument(
-        "--skip", type=bool, help="Whether to skip video processing", default=True
+        "--skip", type=bool, help="Whether to skip video processing", default=False
     )
     args = parser.parse_args()
 
