@@ -129,7 +129,13 @@ def information_retriever_complete(
 
         attempt_count += 1
         need_online_search = check_online_search_needed(
-            model, tokenizer,claim, Video_information, QA_CONTEXTS, question, output_file_path
+            model,
+            tokenizer,
+            claim,
+            Video_information,
+            QA_CONTEXTS,
+            question,
+            output_file_path,
         )
 
         if not need_online_search:
@@ -232,7 +238,27 @@ process_google_search_lock = Lock()
 last_call_time = 0
 
 from Config import API_CONFIG
+from duckduckgo_search import DDGS
 
+def duckduckgo_search(question):
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(question, max_results=10))
+            
+        items = []
+        for r in results:
+            items.append({
+                "title": r.get("title", ""),
+                "link": r.get("href", ""),
+                "snippet": r.get("body", ""),
+                "displayLink": r.get("href", "").split("/")[2] if r.get("href") else ""
+            })
+        return json.dumps({"items": items})
+
+    except Exception as e:
+        print(f"An error occurred during the request: {str(e)}")
+        logging.error(f"An error occurred during the request: {str(e)}")
+        return None
 
 def google_search(question):
 
@@ -274,7 +300,6 @@ def google_search(question):
         logging.error(f"An unknown error occurred: {str(e)}")
         return None
 
-
 def extract_complete_json(response_text):
     json_pattern = r"(\{(?:[^{}]|(?1))*\})"
     matches = regex.findall(json_pattern, response_text)
@@ -309,7 +334,7 @@ def process_item(i, item):
 
 
 def process_google_search(query, output_file_path):
-    data = google_search(query)
+    data = duckduckgo_search(query)
     logging.info("Google search over")
 
     data = json.loads(data)

@@ -37,6 +37,7 @@ INFORMATION_RETRIEVER_CONFIG = {
         "relevance": 0.50,  # Weight for relevance score
     },
     "max_iterations": 3,
+    "max_num_evidences": 3,
 }
 
 # Claim Verifier Configurations
