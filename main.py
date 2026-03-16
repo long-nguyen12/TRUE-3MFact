@@ -426,7 +426,7 @@ def main(args):
     count = 0
 
     for file_name in json_files:
-        if count == 1:
+        if count == 10:
             break
         try:
             count += 1
