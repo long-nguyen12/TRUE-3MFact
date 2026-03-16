@@ -48,7 +48,14 @@ from Config import INFORMATION_RETRIEVER_CONFIG, MODEL_CONFIG
 
 
 def information_retriever_complete(
-    claim, Video_information, QA_CONTEXTS, question, output_file_path, video_id
+    model,
+    tokenizer,
+    claim,
+    Video_information,
+    QA_CONTEXTS,
+    question,
+    output_file_path,
+    video_id,
 ):
 
     logging.warning("\n" * 5)
@@ -57,6 +64,8 @@ def information_retriever_complete(
     logging.warning("-----------------------------------------")
 
     def process_query(
+        model,
+        tokenizer,
         query_key,
         query,
         searching_goal,
@@ -75,6 +84,8 @@ def information_retriever_complete(
         single_query_path = os.path.join(prefix, f"{query_key}.json")
 
         process_query_and_quality_score_value(
+            model,
+            tokenizer,
             query,
             searching_goal,
             claim,
@@ -87,6 +98,8 @@ def information_retriever_complete(
         updated_single_query_path = single_query_path.replace(".json", "_updated.json")
 
         process_evidence_and_Newness_Relevance(
+            model,
+            tokenizer,
             query_key,
             query,
             claim,
@@ -116,13 +129,19 @@ def information_retriever_complete(
 
         attempt_count += 1
         need_online_search = check_online_search_needed(
-            claim, Video_information, QA_CONTEXTS, question, output_file_path
+            model, tokenizer,claim, Video_information, QA_CONTEXTS, question, output_file_path
         )
 
         if not need_online_search:
             logging.info("No online search needed.")
             process_question_VideoLLM(
-                claim, Video_information, question, output_file_path, video_id
+                model,
+                tokenizer,
+                claim,
+                Video_information,
+                question,
+                output_file_path,
+                video_id,
             )
 
             return
@@ -131,7 +150,13 @@ def information_retriever_complete(
 
             logging.info("Online search needed.")
             OnlineSearchTerms = generate_OnlineSearchTerms(
-                claim, Video_information, QA_CONTEXTS, question, output_file_path
+                model,
+                tokenizer,
+                claim,
+                Video_information,
+                QA_CONTEXTS,
+                question,
+                output_file_path,
             )
 
             queries = OnlineSearchTerms["OnlineSearchTerms"]["Queries"]
@@ -143,6 +168,8 @@ def information_retriever_complete(
                     futures.append(
                         executor.submit(
                             process_query,
+                            model,
+                            tokenizer,
                             query_key,
                             query,
                             searching_goal,
@@ -163,7 +190,13 @@ def information_retriever_complete(
             process_json_files(now_folder_path, output_file_path)
 
             now_evidences_useful = select_useful_evidence(
-                claim, Video_information, QA_CONTEXTS, question, output_file_path
+                model,
+                tokenizer,
+                claim,
+                Video_information,
+                QA_CONTEXTS,
+                question,
+                output_file_path,
             )
 
             if now_evidences_useful:
