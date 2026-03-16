@@ -1366,7 +1366,7 @@ def process_question_VideoLLM(
     video_folder = r"/home/public/FakeNews/code/NKP/LLMFND/select_all_videos"
     video_path = os.path.join(video_folder, f"{video_id}.mp4")
 
-    answer = analysis_video_minicpm(video_path, new_question)
+    answer = analysis_video_qwenvl(video_path, new_question)
 
     logging.info("--- VideoLLM answer ---")
     logging.info(answer)
