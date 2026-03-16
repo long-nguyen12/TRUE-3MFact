@@ -1735,7 +1735,7 @@ def extract_surrounding_text(content, snippet, num_tokens=250):
         content, snippet, num_tokens=INFORMATION_RETRIEVER_CONFIG.get("num_tokens", 250)
     ):
 
-        en_core_web_sm_path = MODEL_CONFIG["en_core_web_sm"]["local_model_path"]
+        en_core_web_sm_path = MODEL_CONFIG["en_core_web_sm"]["model_name"]
 
         nlp = spacy.load(en_core_web_sm_path)
 

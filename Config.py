@@ -14,7 +14,7 @@ MODEL_CONFIG = {
         "local_model_path": "",
     },
     "en_core_web_sm": {
-        "model_name": "en_core_web_sm-3.7.1",
+        "model_name": "en_core_web_sm",
         "model_type": "Spacy",
         "local_model_path": "",
     },
