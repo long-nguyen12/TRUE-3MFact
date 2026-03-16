@@ -139,16 +139,10 @@ def analysis_video_qwenvl(video_path, question):
         return frames
 
     try:
-        model, tokenizer = initialize("Qwen", "2.5B")
-        model.eval().cuda()
+        model, processor = initialize("Qwen", "2.5B")
 
         frames = encode_video(video_path)
 
-        params = {
-            "use_image_id": False,
-            "max_slice_nums": 1,  # use 1 if cuda OOM and video resolution > 448*448
-        }
-        
         msgs = [
             {
                 "role": "user",
