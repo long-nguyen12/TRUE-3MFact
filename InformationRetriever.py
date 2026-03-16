@@ -238,7 +238,9 @@ process_google_search_lock = Lock()
 last_call_time = 0
 
 from Config import API_CONFIG
-from duckduckgo_search import DDGS
+# from duckduckgo_search import DDGS
+from ddgs import DDGS
+
 
 def duckduckgo_search(question):
     try:
