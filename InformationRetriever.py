@@ -189,7 +189,7 @@ def information_retriever_complete(
 
                 for future in futures:
                     future.result()
-            logging.info("两个查询处理均执行完毕")
+            logging.info("Both queries have been completed")
 
             now_folder_path = os.path.dirname(output_file_path)
 
@@ -782,6 +782,8 @@ It is required to rate and explain the reasons for all websites. Each website sh
         }}
     }}
 
+    **IMPORTANT: Output ONLY the JSON object. No markdown, no code blocks, no explanations, no additional text.**
+
     Note: 
     - "quality_score_value" should be an integer between 0 and 10.
     - "justification" should be a string.
@@ -795,7 +797,7 @@ It is required to rate and explain the reasons for all websites. Each website sh
 
         evaluation = extract_complete_json(answer_format)
         if not evaluation:
-            logging.error("未能提取有效的JSON格式评价信息，重新获取GPT-3.5的分析结果。")
+            logging.error("Unable to retrieve valid JSON-formatted evaluation data. Please re-fetch the GPT-3.5 analysis results.")
             iterations += 1
             continue
         match_count = 0
@@ -818,7 +820,7 @@ It is required to rate and explain the reasons for all websites. Each website sh
         iterations += 1
 
     if iterations == max_iterations:
-        logging.error("在最大尝试次数内未能成功匹配所有评价信息。")
+        logging.error("All review information could not be successfully matched within the maximum number of attempts。")
 
     updated_single_query_path = output_file_path.replace(".json", "_updated.json")
     with open(updated_single_query_path, "w", encoding="utf-8") as file:
