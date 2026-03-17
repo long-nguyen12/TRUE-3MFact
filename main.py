@@ -222,6 +222,14 @@ def process_claim_verification(
 
             while not is_now_QA_useful and attempts < max_attempts:
                 try:
+                    # region agent log
+                    _agent_dbg_log(
+                        "H3",
+                        "main.py:176",
+                        "generate_initial_question begin",
+                        {"cvPath": CV_output_file_path, "attempt": attempts, "activeThreads": threading.active_count()},
+                    )
+                    # endregion agent log
                     stage_start = time.perf_counter()
                     key, primary_question, secondary_questions = (
                         generate_initial_question(
@@ -236,6 +244,21 @@ def process_claim_verification(
                         "generate_initial_question took %.2fs"
                         % (time.perf_counter() - stage_start)
                     )
+                    # region agent log
+                    _agent_dbg_log(
+                        "H3",
+                        "main.py:200",
+                        "generate_initial_question end",
+                        {
+                            "cvPath": CV_output_file_path,
+                            "attempt": attempts,
+                            "elapsedSec": round(time.perf_counter() - stage_start, 3),
+                            "key": key,
+                            "primaryQuestionLen": len(primary_question) if isinstance(primary_question, str) else None,
+                            "secondaryQuestionsN": len(secondary_questions) if secondary_questions is not None else None,
+                        },
+                    )
+                    # endregion agent log
 
                     logging.info("Generated Initial Question: %s", primary_question)
 
@@ -250,6 +273,14 @@ def process_claim_verification(
 
                     video_id = extract_video_id(CV_output_file_path)
 
+                    # region agent log
+                    _agent_dbg_log(
+                        "H4",
+                        "main.py:231",
+                        "information_retriever_complete begin",
+                        {"cvPath": CV_output_file_path, "irPath": IR_output_file_path, "videoId": video_id},
+                    )
+                    # endregion agent log
                     information_retriever_complete(
                         model,
                         tokenizer,
@@ -264,6 +295,14 @@ def process_claim_verification(
                         "information_retriever_complete took %.2fs"
                         % (time.perf_counter() - stage_start)
                     )
+                    # region agent log
+                    _agent_dbg_log(
+                        "H4",
+                        "main.py:255",
+                        "information_retriever_complete end",
+                        {"cvPath": CV_output_file_path, "irPath": IR_output_file_path},
+                    )
+                    # endregion agent log
                     logging.info("IR results saved to: %s", IR_output_file_path)
 
                     with open(IR_output_file_path, "r", encoding="utf-8") as file:
@@ -594,6 +633,14 @@ def main(args):
                     cv_data = json.load(f)
                     if "Final_Judgement" in cv_data:
                         print(f"Skipping {file_name} as it has already been processed.")
+                        # region agent log
+                        _agent_dbg_log(
+                            "H2",
+                            "main.py:507",
+                            "skip file: Final_Judgement already present",
+                            {"fileName": file_name, "cvPath": CV_output_file_path, "activeThreads": threading.active_count()},
+                        )
+                        # endregion agent log
                         continue
 
             if os.path.exists(output_folder):
