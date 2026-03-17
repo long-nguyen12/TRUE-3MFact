@@ -13,9 +13,14 @@ import traceback
 from datetime import datetime
 
 # Third-party imports
-import pytz
+try:
+    import pytz  # optional; prefer stdlib zoneinfo if missing
+except ModuleNotFoundError:  # pragma: no cover
+    pytz = None
 import regex
 import requests
+from datetime import timezone
+from zoneinfo import ZoneInfo
 
 # Local module imports
 from local_llm.llms import initialize
@@ -33,8 +38,11 @@ import argparse
 
 class TimeZoneFormatter(logging.Formatter):
     def converter(self, timestamp):
-        dt = datetime.fromtimestamp(timestamp, tz=pytz.UTC)
-        return dt.astimezone(pytz.timezone("Europe/Paris"))
+        if pytz is not None:
+            dt = datetime.fromtimestamp(timestamp, tz=pytz.UTC)
+            return dt.astimezone(pytz.timezone("Europe/Paris"))
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        return dt.astimezone(ZoneInfo("Europe/Paris"))
 
     def formatTime(self, record, datefmt=None):
         dt = self.converter(record.created)

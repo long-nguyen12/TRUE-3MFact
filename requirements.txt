@@ -23,3 +23,6 @@ trafilatura==1.12.2
 transformers==4.57.3
 huggingface-hub
 accelerate
+Pillow
+ddgs
+qwen-vl-utils[decord]==0.0.8

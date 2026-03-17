@@ -3,7 +3,7 @@ from platform import processor
 import regex
 import requests
 from local_llm.llms import initialize, run_llama, run_deepseek, run_qwen, run_qwen_text
-from Config import MODEL_CONFIG
+from Config import MODEL_CONFIG, DATASET_CONFIG
 from qwen_vl_utils import process_vision_info
 from pathlib import Path
 
@@ -122,26 +122,46 @@ def analysis_video_minicpm(video_path, question):
 
 def analysis_video_qwenvl(video_path, question):
 
-    data_root = "./data/TRUE_Dataset"
-    video_dirs = [
-        os.path.join(data_root, "train_val_video"),
-        os.path.join(data_root, "test_video"),
-    ]
-    found_path = None
+    # Allow callers to pass an absolute path directly.
+    try_path = Path(str(video_path))
+    if try_path.is_absolute() and try_path.exists():
+        video_path = str(try_path)
+    else:
+        root_dir = Path(DATASET_CONFIG.get("root_dir", ""))
+        if not root_dir.is_absolute():
+            root_dir = (Path(__file__).resolve().parent / root_dir).resolve()
 
-    for vdir in video_dirs:
-        if not os.path.exists(vdir):
-            continue
-        candidate = os.path.join(vdir, video_path)
-        if os.path.exists(candidate):
-            found_path = candidate
-            break
+        video_dirs_cfg = DATASET_CONFIG.get("video_dir", {}) or {}
+        candidate_dirs = []
+        # Prefer train/val first, then test, but also accept any other configured splits.
+        for split in ("train_val", "test"):
+            v = video_dirs_cfg.get(split)
+            if v:
+                candidate_dirs.append(root_dir / v)
+        for split, v in video_dirs_cfg.items():
+            if split in ("train_val", "test"):
+                continue
+            if v:
+                candidate_dirs.append(root_dir / v)
 
-    if found_path is None:
-        print(f"Error: Video '{video_path}' not found in any dataset directories.")
-        return None
+        rel_video = str(video_path).lstrip("/\\")
+        tried = []
+        found_path = None
+        for vdir in candidate_dirs:
+            candidate = (Path(vdir) / rel_video)
+            tried.append(str(candidate))
+            if candidate.exists():
+                found_path = str(candidate)
+                break
 
-    video_path = found_path
+        if found_path is None:
+            print(
+                f"Error: Video '{video_path}' not found under dataset root '{root_dir}'. "
+                f"Tried: {tried}"
+            )
+            return None
+
+        video_path = found_path
 
     def uniform_sample(l, n):
         gap = len(l) / n

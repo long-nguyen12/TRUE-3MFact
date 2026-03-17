@@ -1282,6 +1282,8 @@ def process_claim_and_generate_answer_without_gs(
         format_final_prompt = f"""
 Please convert the following text content into the specified JSON structure. Ensure the output is in JSON format and maintain the original content as much as possible, changing only the structure to the specified JSON format.
 
+**IMPORTANT: Output ONLY the JSON object. No markdown, no code blocks, no explanations, no additional text.**
+
 Desired JSON structure:
 {{
     "QA": {{
@@ -1296,6 +1298,10 @@ Please note: Only modify the structure of the given following content, keeping t
 Text content to be converted:
 "{answer}"
 The final output should be in JSON format, which includes the extracted content of the 'Answer' and the 'Confidence' of the non empty percentage.
+
+**Confidence must be a number between 0-100 (e.g., 85, not "85%" or "high").**
+
+**Output ONLY JSON, starting with {{ and ending with }}:**
 """
 
         final_answer = local_llm_analysis(model, tokenizer, format_final_prompt)
