@@ -642,7 +642,28 @@ Step 2: Please generate 1 professional searching query for each goal used to per
     )
     logging.info(prompt_for_queries_generation)
 
+    # region agent log
+    _agent_dbg_log(
+        "IR3",
+        "InformationRetriever.py:645",
+        "generate_OnlineSearchTerms llm(gen queries) begin",
+        {"outPath": output_file_path, "questionLen": len(question) if isinstance(question, str) else None},
+    )
+    # endregion agent log
+    _t0 = time.perf_counter()
     query_answer = local_llm_analysis(model, tokenizer, prompt_for_queries_generation)
+    # region agent log
+    _agent_dbg_log(
+        "IR3",
+        "InformationRetriever.py:654",
+        "generate_OnlineSearchTerms llm(gen queries) end",
+        {
+            "outPath": output_file_path,
+            "elapsedSec": round(time.perf_counter() - _t0, 3),
+            "answerLen": len(query_answer) if isinstance(query_answer, str) else None,
+        },
+    )
+    # endregion agent log
 
     logging.info(
         "################## Generating OnlineSearchTerms Raw Output ##################"
@@ -683,8 +704,52 @@ Instructions:
 The output should be a valid JSON object that can be parsed without errors. Do not include any additional text or explanations outside of the JSON structure.
 """
 
+    # region agent log
+    _agent_dbg_log(
+        "IR3",
+        "InformationRetriever.py:696",
+        "generate_OnlineSearchTerms llm(format json) begin",
+        {"outPath": output_file_path},
+    )
+    # endregion agent log
+    _t1 = time.perf_counter()
     query_json_answer = local_llm_analysis(model, tokenizer, prompt_for_query_format)
+    # region agent log
+    _agent_dbg_log(
+        "IR3",
+        "InformationRetriever.py:703",
+        "generate_OnlineSearchTerms llm(format json) end",
+        {
+            "outPath": output_file_path,
+            "elapsedSec": round(time.perf_counter() - _t1, 3),
+            "answerLen": len(query_json_answer) if isinstance(query_json_answer, str) else None,
+        },
+    )
+    # endregion agent log
+
+    # region agent log
+    _agent_dbg_log(
+        "IR3",
+        "InformationRetriever.py:714",
+        "generate_OnlineSearchTerms extract_complete_json begin",
+        {"outPath": output_file_path},
+    )
+    # endregion agent log
+    _t2 = time.perf_counter()
     query_complete_json_answer = extract_complete_json(query_json_answer)
+    # region agent log
+    _agent_dbg_log(
+        "IR3",
+        "InformationRetriever.py:721",
+        "generate_OnlineSearchTerms extract_complete_json end",
+        {
+            "outPath": output_file_path,
+            "elapsedSec": round(time.perf_counter() - _t2, 3),
+            "isNone": query_complete_json_answer is None,
+            "keys": sorted(list(query_complete_json_answer.keys())) if isinstance(query_complete_json_answer, dict) else None,
+        },
+    )
+    # endregion agent log
 
     logging.info("Query Complete JSON Answer")
     logging.info(query_complete_json_answer)
