@@ -122,20 +122,25 @@ def analysis_video_minicpm(video_path, question):
 
 def analysis_video_qwenvl(video_path, question):
 
-    data_root = Path("./data/TRUE_Dataset")
+    data_root = "./data/TRUE_Dataset"
     video_dirs = [
-        data_root / "train_val_video",
-        data_root / "test_video",
+        os.path.join(data_root, "train_val_video"),
+        os.path.join(data_root, "test_video"),
     ]
     found_path = None
 
     for vdir in video_dirs:
-        if not vdir.exists():
+        if not os.path.exists(vdir):
             continue
-        candidate = vdir / video_path
-        if candidate.exists():
+        candidate = os.path.join(vdir, video_path)
+        if os.path.exists(candidate):
             found_path = candidate
             break
+
+    if found_path is None:
+        print(f"Error: Video '{video_path}' not found in any dataset directories.")
+        return None
+
     video_path = found_path
 
     def uniform_sample(l, n):
