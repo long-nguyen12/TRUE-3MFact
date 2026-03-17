@@ -161,7 +161,7 @@ def analysis_video_qwenvl(video_path, question):
         return frames
 
     try:
-        model, processor = initialize("Qwen", "2.5B")
+        processor, model = initialize("Qwen", "2.5B")
 
         frames = encode_video(video_path)
 
