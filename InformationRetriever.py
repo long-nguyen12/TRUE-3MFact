@@ -47,23 +47,6 @@ from LLM_Call import *
 from Config import INFORMATION_RETRIEVER_CONFIG, MODEL_CONFIG
 
 
-def _agent_dbg_log(hypothesisId, location, message, data=None, runId="pre-fix"):
-    try:
-        payload = {
-            "sessionId": "e7401e",
-            "runId": runId,
-            "hypothesisId": hypothesisId,
-            "location": location,
-            "message": message,
-            "data": data or {},
-            "timestamp": int(time.time() * 1000),
-        }
-        with open("debug-e7401e.log", "a", encoding="utf-8") as _f:
-            _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    except Exception:
-        pass
-
-
 def information_retriever_complete(
     model,
     tokenizer,
@@ -73,21 +56,8 @@ def information_retriever_complete(
     question,
     output_file_path,
     video_id,
+    cancel_event=None,
 ):
-    # region agent log
-    _agent_dbg_log(
-        "IR1",
-        "InformationRetriever.py:63",
-        "information_retriever_complete enter",
-        {
-            "outPath": output_file_path,
-            "videoId": video_id,
-            "questionLen": len(question) if isinstance(question, str) else None,
-            "activeThreads": threading.active_count(),
-        },
-    )
-    # endregion agent log
-
     logging.warning("\n" * 5)
     logging.warning("-----------------------------------------")
     logging.warning("--------- Information Retriever ---------")
@@ -144,6 +114,8 @@ def information_retriever_complete(
     while attempt_count < INFORMATION_RETRIEVER_CONFIG.get("max_iterations"):
 
         try:
+            if cancel_event is not None and cancel_event.is_set():
+                return
             with open(output_file_path, "r", encoding="utf-8") as file:
                 try:
                     full_data = json.load(file)
@@ -158,15 +130,6 @@ def information_retriever_complete(
             json.dump(full_data, f, indent=4, ensure_ascii=False)
 
         attempt_count += 1
-        # region agent log
-        _agent_dbg_log(
-            "IR2",
-            "InformationRetriever.py:141",
-            "check_online_search_needed begin",
-            {"outPath": output_file_path, "attempt": attempt_count},
-        )
-        # endregion agent log
-        _t0 = time.perf_counter()
         need_online_search = check_online_search_needed(
             model,
             tokenizer,
@@ -176,19 +139,6 @@ def information_retriever_complete(
             question,
             output_file_path,
         )
-        # region agent log
-        _agent_dbg_log(
-            "IR2",
-            "InformationRetriever.py:154",
-            "check_online_search_needed end",
-            {
-                "outPath": output_file_path,
-                "attempt": attempt_count,
-                "needOnlineSearch": bool(need_online_search),
-                "elapsedSec": round(time.perf_counter() - _t0, 3),
-            },
-        )
-        # endregion agent log
 
         if not need_online_search:
             logging.info("No online search needed.")
@@ -207,14 +157,6 @@ def information_retriever_complete(
         else:
 
             logging.info("Online search needed.")
-            # region agent log
-            _agent_dbg_log(
-                "IR3",
-                "InformationRetriever.py:175",
-                "generate_OnlineSearchTerms begin",
-                {"outPath": output_file_path, "attempt": attempt_count},
-            )
-            # endregion agent log
             OnlineSearchTerms = generate_OnlineSearchTerms(
                 model,
                 tokenizer,
@@ -224,22 +166,6 @@ def information_retriever_complete(
                 question,
                 output_file_path,
             )
-            # region agent log
-            _agent_dbg_log(
-                "IR3",
-                "InformationRetriever.py:190",
-                "generate_OnlineSearchTerms end",
-                {
-                    "outPath": output_file_path,
-                    "attempt": attempt_count,
-                    "queryKeys": (
-                        sorted(list(OnlineSearchTerms.get("OnlineSearchTerms", {}).get("Queries", {}).keys()))
-                        if isinstance(OnlineSearchTerms, dict)
-                        else None
-                    ),
-                },
-            )
-            # endregion agent log
 
             queries = OnlineSearchTerms["OnlineSearchTerms"]["Queries"]
             with ThreadPoolExecutor(max_workers=2) as executor:
@@ -263,24 +189,10 @@ def information_retriever_complete(
                         )
                     )
 
-                # region agent log
-                _agent_dbg_log(
-                    "IR4",
-                    "InformationRetriever.py:216",
-                    "wait for query futures begin",
-                    {"outPath": output_file_path, "futuresN": len(futures)},
-                )
-                # endregion agent log
                 for future in futures:
+                    if cancel_event is not None and cancel_event.is_set():
+                        return
                     future.result()
-                # region agent log
-                _agent_dbg_log(
-                    "IR4",
-                    "InformationRetriever.py:223",
-                    "wait for query futures end",
-                    {"outPath": output_file_path, "futuresN": len(futures)},
-                )
-                # endregion agent log
             logging.info("Both queries have been completed")
 
             now_folder_path = os.path.dirname(output_file_path)
@@ -428,37 +340,20 @@ def process_item(i, item):
 
 
 def process_google_search(query, output_file_path):
-    # region agent log
-    _agent_dbg_log(
-        "IR5",
-        "InformationRetriever.py:342",
-        "process_google_search begin",
-        {"queryLen": len(query) if isinstance(query, str) else None, "outPath": output_file_path},
-    )
-    # endregion agent log
-    _t0 = time.perf_counter()
     data = duckduckgo_search(query)
-    # region agent log
-    _agent_dbg_log(
-        "IR5",
-        "InformationRetriever.py:349",
-        "duckduckgo_search returned",
-        {
-            "outPath": output_file_path,
-            "elapsedSec": round(time.perf_counter() - _t0, 3),
-            "dataIsNone": data is None,
-            "dataLen": len(data) if isinstance(data, str) else None,
-        },
-    )
-    # endregion agent log
     logging.info("Google search over")
 
     data = json.loads(data)
 
-    with ThreadPoolExecutor() as executor:
+    # Bound how many results we fetch content for.
+    max_items = int(INFORMATION_RETRIEVER_CONFIG.get("max_search_items", 5))
+    items = list(data.get("items", []))[:max_items]
+
+    max_workers = int(INFORMATION_RETRIEVER_CONFIG.get("search_item_workers", 4))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
             executor.submit(process_item, i, item)
-            for i, item in enumerate(data.get("items", []))
+            for i, item in enumerate(items)
         ]
         new_items = [future.result() for future in futures]
 
@@ -642,28 +537,7 @@ Step 2: Please generate 1 professional searching query for each goal used to per
     )
     logging.info(prompt_for_queries_generation)
 
-    # region agent log
-    _agent_dbg_log(
-        "IR3",
-        "InformationRetriever.py:645",
-        "generate_OnlineSearchTerms llm(gen queries) begin",
-        {"outPath": output_file_path, "questionLen": len(question) if isinstance(question, str) else None},
-    )
-    # endregion agent log
-    _t0 = time.perf_counter()
     query_answer = local_llm_analysis(model, tokenizer, prompt_for_queries_generation)
-    # region agent log
-    _agent_dbg_log(
-        "IR3",
-        "InformationRetriever.py:654",
-        "generate_OnlineSearchTerms llm(gen queries) end",
-        {
-            "outPath": output_file_path,
-            "elapsedSec": round(time.perf_counter() - _t0, 3),
-            "answerLen": len(query_answer) if isinstance(query_answer, str) else None,
-        },
-    )
-    # endregion agent log
 
     logging.info(
         "################## Generating OnlineSearchTerms Raw Output ##################"
@@ -704,52 +578,8 @@ Instructions:
 The output should be a valid JSON object that can be parsed without errors. Do not include any additional text or explanations outside of the JSON structure.
 """
 
-    # region agent log
-    _agent_dbg_log(
-        "IR3",
-        "InformationRetriever.py:696",
-        "generate_OnlineSearchTerms llm(format json) begin",
-        {"outPath": output_file_path},
-    )
-    # endregion agent log
-    _t1 = time.perf_counter()
     query_json_answer = local_llm_analysis(model, tokenizer, prompt_for_query_format)
-    # region agent log
-    _agent_dbg_log(
-        "IR3",
-        "InformationRetriever.py:703",
-        "generate_OnlineSearchTerms llm(format json) end",
-        {
-            "outPath": output_file_path,
-            "elapsedSec": round(time.perf_counter() - _t1, 3),
-            "answerLen": len(query_json_answer) if isinstance(query_json_answer, str) else None,
-        },
-    )
-    # endregion agent log
-
-    # region agent log
-    _agent_dbg_log(
-        "IR3",
-        "InformationRetriever.py:714",
-        "generate_OnlineSearchTerms extract_complete_json begin",
-        {"outPath": output_file_path},
-    )
-    # endregion agent log
-    _t2 = time.perf_counter()
     query_complete_json_answer = extract_complete_json(query_json_answer)
-    # region agent log
-    _agent_dbg_log(
-        "IR3",
-        "InformationRetriever.py:721",
-        "generate_OnlineSearchTerms extract_complete_json end",
-        {
-            "outPath": output_file_path,
-            "elapsedSec": round(time.perf_counter() - _t2, 3),
-            "isNone": query_complete_json_answer is None,
-            "keys": sorted(list(query_complete_json_answer.keys())) if isinstance(query_complete_json_answer, dict) else None,
-        },
-    )
-    # endregion agent log
 
     logging.info("Query Complete JSON Answer")
     logging.info(query_complete_json_answer)
@@ -1809,9 +1639,12 @@ def fetch_webpage_content_trafilatura(link, retries=1):
                 return {"success": False, "error": f"Error fetching {link}: {str(e)}"}
 
 
-def fetch_webpage_content(link, retries=2):
+def fetch_webpage_content(link, retries=2, cancel_event=None):
     results = [None, None, None, None]
     _t0 = time.perf_counter()
+
+    if cancel_event is not None and cancel_event.is_set():
+        return {"success": False, "content": ""}
 
     def run_bs4():
         results[0] = fetch_webpage_content_bs4(link, retries)
@@ -1838,14 +1671,6 @@ def fetch_webpage_content(link, retries=2):
         threading.Thread(target=run_trafilatura),
     ]
 
-    # region agent log
-    _agent_dbg_log(
-        "IR6",
-        "InformationRetriever.py:1675",
-        "fetch_webpage_content start threads",
-        {"link": link, "threadsN": len(threads)},
-    )
-    # endregion agent log
     for thread in threads:
         thread.start()
 
@@ -1857,33 +1682,7 @@ def fetch_webpage_content(link, retries=2):
         remaining = max(0.0, deadline - time.perf_counter())
         thread.join(timeout=remaining)
 
-    any_alive = any(t.is_alive() for t in threads)
-    if any_alive:
-        # region agent log
-        _agent_dbg_log(
-            "IR6",
-            "InformationRetriever.py:1698",
-            "fetch_webpage_content join timeout hit (some threads still alive)",
-            {"link": link, "joinTimeoutSec": join_timeout_s},
-        )
-        # endregion agent log
-
-    # region agent log
-    _agent_dbg_log(
-        "IR6",
-        "InformationRetriever.py:1686",
-        "fetch_webpage_content threads joined",
-        {
-            "link": link,
-            "elapsedSec": round(time.perf_counter() - _t0, 3),
-            "result0": bool(results[0] and results[0].get("content")),
-            "result1": bool(results[1] and results[1].get("content")),
-            "result2": bool(results[2] and results[2].get("content")),
-            "result3": bool(results[3] and results[3].get("content")),
-            "anyAlive": any_alive,
-        },
-    )
-    # endregion agent log
+    # We don't block indefinitely here; we may return with partial results.
 
     valid_results = [result for result in results if result and result.get("content")]
     if valid_results:

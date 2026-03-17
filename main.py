@@ -57,23 +57,6 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def _agent_dbg_log(hypothesisId, location, message, data=None, runId="pre-fix"):
-    try:
-        payload = {
-            "sessionId": "e7401e",
-            "runId": runId,
-            "hypothesisId": hypothesisId,
-            "location": location,
-            "message": message,
-            "data": data or {},
-            "timestamp": int(time.time() * 1000),
-        }
-        with open("debug-e7401e.log", "a", encoding="utf-8") as _f:
-            _f.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    except Exception:
-        pass
-
-
 def update_cv_result_with_ir_data(key, cv_output_file_path, ir_output_file_path):
     try:
         with open(ir_output_file_path, "r") as ir_file:
@@ -141,26 +124,14 @@ def extract_video_id(CV_output_file_path):
 
 
 def process_claim_verification(
-    model, tokenizer, CV_output_file_path, Claim, Video_information, QA_CONTEXTS
+    model,
+    tokenizer,
+    CV_output_file_path,
+    Claim,
+    Video_information,
+    QA_CONTEXTS,
+    cancel_event=None,
 ):
-    # region agent log
-    _agent_dbg_log(
-        "H1",
-        "main.py:129",
-        "process_claim_verification enter",
-        {
-            "cvPath": CV_output_file_path,
-            "claimLen": len(Claim) if isinstance(Claim, str) else None,
-            "videoInfoKeys": (
-                sorted(list(Video_information.keys()))[:50]
-                if isinstance(Video_information, dict)
-                else None
-            ),
-            "qaContextKeysN": len(QA_CONTEXTS) if isinstance(QA_CONTEXTS, dict) else None,
-            "activeThreads": threading.active_count(),
-        },
-    )
-    # endregion agent log
     if not os.path.exists(CV_output_file_path):
         with open(CV_output_file_path, "w") as file:
             json.dump({}, file)
@@ -174,31 +145,10 @@ def process_claim_verification(
 
     try:
         stage_start = time.perf_counter()
-        # region agent log
-        _agent_dbg_log(
-            "H2",
-            "main.py:156",
-            "process_claim_verifier begin",
-            {"cvPath": CV_output_file_path, "activeThreads": threading.active_count()},
-        )
-        # endregion agent log
         judgment, confidence = process_claim_verifier(
             model, tokenizer, Claim, Video_information, QA_CONTEXTS, CV_output_file_path
         )
         print("process_claim_verifier took %.2fs" % (time.perf_counter() - stage_start))
-        # region agent log
-        _agent_dbg_log(
-            "H2",
-            "main.py:168",
-            "process_claim_verifier end",
-            {
-                "cvPath": CV_output_file_path,
-                "elapsedSec": round(time.perf_counter() - stage_start, 3),
-                "judgment": judgment,
-                "confidence": confidence,
-            },
-        )
-        # endregion agent log
         logging.info(
             "process_claim_verifier result - Judgment: %s, Confidence: %s",
             judgment,
@@ -222,14 +172,8 @@ def process_claim_verification(
 
             while not is_now_QA_useful and attempts < max_attempts:
                 try:
-                    # region agent log
-                    _agent_dbg_log(
-                        "H3",
-                        "main.py:176",
-                        "generate_initial_question begin",
-                        {"cvPath": CV_output_file_path, "attempt": attempts, "activeThreads": threading.active_count()},
-                    )
-                    # endregion agent log
+                    if cancel_event is not None and cancel_event.is_set():
+                        return
                     stage_start = time.perf_counter()
                     key, primary_question, secondary_questions = (
                         generate_initial_question(
@@ -244,21 +188,6 @@ def process_claim_verification(
                         "generate_initial_question took %.2fs"
                         % (time.perf_counter() - stage_start)
                     )
-                    # region agent log
-                    _agent_dbg_log(
-                        "H3",
-                        "main.py:200",
-                        "generate_initial_question end",
-                        {
-                            "cvPath": CV_output_file_path,
-                            "attempt": attempts,
-                            "elapsedSec": round(time.perf_counter() - stage_start, 3),
-                            "key": key,
-                            "primaryQuestionLen": len(primary_question) if isinstance(primary_question, str) else None,
-                            "secondaryQuestionsN": len(secondary_questions) if secondary_questions is not None else None,
-                        },
-                    )
-                    # endregion agent log
 
                     logging.info("Generated Initial Question: %s", primary_question)
 
@@ -273,14 +202,6 @@ def process_claim_verification(
 
                     video_id = extract_video_id(CV_output_file_path)
 
-                    # region agent log
-                    _agent_dbg_log(
-                        "H4",
-                        "main.py:231",
-                        "information_retriever_complete begin",
-                        {"cvPath": CV_output_file_path, "irPath": IR_output_file_path, "videoId": video_id},
-                    )
-                    # endregion agent log
                     information_retriever_complete(
                         model,
                         tokenizer,
@@ -290,19 +211,12 @@ def process_claim_verification(
                         primary_question,
                         IR_output_file_path,
                         video_id,
+                        cancel_event=cancel_event,
                     )
                     print(
                         "information_retriever_complete took %.2fs"
                         % (time.perf_counter() - stage_start)
                     )
-                    # region agent log
-                    _agent_dbg_log(
-                        "H4",
-                        "main.py:255",
-                        "information_retriever_complete end",
-                        {"cvPath": CV_output_file_path, "irPath": IR_output_file_path},
-                    )
-                    # endregion agent log
                     logging.info("IR results saved to: %s", IR_output_file_path)
 
                     with open(IR_output_file_path, "r", encoding="utf-8") as file:
@@ -338,6 +252,8 @@ def process_claim_verification(
 
         new_question_count = 1
         while if_generate_question:
+            if cancel_event is not None and cancel_event.is_set():
+                return
             new_QA_CONTEXTS = extract_qa_contexts(CV_output_file_path)
 
             new_judgment, new_confidence = process_claim_verifier(
@@ -378,6 +294,8 @@ def process_claim_verification(
 
             while not is_now_QA_useful and attempts < max_attempts:
                 try:
+                    if cancel_event is not None and cancel_event.is_set():
+                        return
                     stage_start = time.perf_counter()
                     new_key, follow_up_question = generate_follow_up_question(
                         model,
@@ -418,6 +336,7 @@ def process_claim_verification(
                         follow_up_question,
                         IR_output_file_path,
                         video_id,
+                        cancel_event=cancel_event,
                     )
                     print(
                         "information_retriever_complete took %.2fs"
@@ -459,14 +378,6 @@ def process_claim_verification(
 
         new_QA_CONTEXTS = extract_qa_contexts(CV_output_file_path)
         stage_start = time.perf_counter()
-        # region agent log
-        _agent_dbg_log(
-            "H3",
-            "main.py:393",
-            "process_claim_final begin",
-            {"cvPath": CV_output_file_path, "activeThreads": threading.active_count()},
-        )
-        # endregion agent log
         final_json_answer = process_claim_final(
             model,
             tokenizer,
@@ -476,36 +387,11 @@ def process_claim_verification(
             CV_output_file_path,
         )
         print("process_claim_final took %.2fs" % (time.perf_counter() - stage_start))
-        # region agent log
-        _agent_dbg_log(
-            "H3",
-            "main.py:408",
-            "process_claim_final end",
-            {"cvPath": CV_output_file_path, "elapsedSec": round(time.perf_counter() - stage_start, 3)},
-        )
-        # endregion agent log
         logging.info("final_json_answer \n%s", final_json_answer)
 
     except Exception as e:
-        # region agent log
-        _agent_dbg_log(
-            "H4",
-            "main.py:414",
-            "process_claim_verification exception",
-            {"cvPath": CV_output_file_path, "err": str(e), "activeThreads": threading.active_count()},
-        )
-        # endregion agent log
         logging.error("An error occurred: %s", str(e))
         logging.error(traceback.format_exc())
-    finally:
-        # region agent log
-        _agent_dbg_log(
-            "H1",
-            "main.py:424",
-            "process_claim_verification exit",
-            {"cvPath": CV_output_file_path, "activeThreads": threading.active_count()},
-        )
-        # endregion agent log
 
 
 def process_with_timeout(
@@ -527,56 +413,14 @@ def process_with_timeout(
             Claim,
             Video_information,
             QA_CONTEXTS,
+            event,
         ),
     )
     thread.start()
-    # region agent log
-    _agent_dbg_log(
-        "H5",
-        "main.py:414",
-        "process_with_timeout started thread",
-        {
-            "cvPath": CV_output_file_path,
-            "timeoutSec": timeout,
-            "threadName": thread.name,
-            "threadIdent": thread.ident,
-            "activeThreads": threading.active_count(),
-        },
-    )
-    # endregion agent log
     thread.join(timeout)
     if thread.is_alive():
         logging.error("Timeout reached for %s", CV_output_file_path)
-        # region agent log
-        _agent_dbg_log(
-            "H5",
-            "main.py:427",
-            "process_with_timeout timeout hit (thread still alive)",
-            {
-                "cvPath": CV_output_file_path,
-                "timeoutSec": timeout,
-                "threadName": thread.name,
-                "threadIdent": thread.ident,
-                "activeThreads": threading.active_count(),
-            },
-        )
-        # endregion agent log
         event.set()
-    else:
-        # region agent log
-        _agent_dbg_log(
-            "H5",
-            "main.py:443",
-            "process_with_timeout completed within timeout",
-            {
-                "cvPath": CV_output_file_path,
-                "timeoutSec": timeout,
-                "threadName": thread.name,
-                "threadIdent": thread.ident,
-                "activeThreads": threading.active_count(),
-            },
-        )
-        # endregion agent log
 
 
 def main(args):
@@ -609,14 +453,6 @@ def main(args):
             break
         try:
             count += 1
-            # region agent log
-            _agent_dbg_log(
-                "H1",
-                "main.py:463",
-                "main loop start file",
-                {"fileName": file_name, "index": count, "total": len(json_files), "activeThreads": threading.active_count()},
-            )
-            # endregion agent log
             print(
                 f"---------- Processing {count}/{len(json_files)}: {file_name} ----------"
             )
@@ -633,14 +469,6 @@ def main(args):
                     cv_data = json.load(f)
                     if "Final_Judgement" in cv_data:
                         print(f"Skipping {file_name} as it has already been processed.")
-                        # region agent log
-                        _agent_dbg_log(
-                            "H2",
-                            "main.py:507",
-                            "skip file: Final_Judgement already present",
-                            {"fileName": file_name, "cvPath": CV_output_file_path, "activeThreads": threading.active_count()},
-                        )
-                        # endregion agent log
                         continue
 
             if os.path.exists(output_folder):
@@ -682,14 +510,6 @@ def main(args):
 
             if timeout_event.is_set():
                 print(f"Timeout reached for {file_name}. Skipping to the next file.")
-                # region agent log
-                _agent_dbg_log(
-                    "H1",
-                    "main.py:520",
-                    "main loop timeout_event set; skipping file",
-                    {"fileName": file_name, "activeThreads": threading.active_count()},
-                )
-                # endregion agent log
                 logger.removeHandler(file_handler)
                 continue
 
