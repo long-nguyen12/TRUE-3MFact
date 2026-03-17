@@ -5,6 +5,7 @@ import requests
 from local_llm.llms import initialize, run_llama, run_deepseek, run_qwen, run_qwen_text
 from Config import MODEL_CONFIG
 from qwen_vl_utils import process_vision_info
+from pathlib import Path
 
 
 def gpt_mini_analysis(prompt):
@@ -120,6 +121,22 @@ def analysis_video_minicpm(video_path, question):
 
 
 def analysis_video_qwenvl(video_path, question):
+
+    data_root = Path("./data/TRUE_Dataset")
+    video_dirs = [
+        data_root / "train_val_video",
+        data_root / "test_video",
+    ]
+    found_path = None
+
+    for vdir in video_dirs:
+        if not vdir.exists():
+            continue
+        candidate = vdir / video_path
+        if candidate.exists():
+            found_path = candidate
+            break
+    video_path = found_path
 
     def uniform_sample(l, n):
         gap = len(l) / n
