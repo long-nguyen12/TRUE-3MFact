@@ -230,7 +230,7 @@ def information_retriever_complete(
                 logging.info(f"Cleared file contents: {output_file_path}")
 
     process_claim_and_generate_answer(
-        claim, Video_information, QA_CONTEXTS, question, output_file_path
+        model, tokenizer, claim, Video_information, QA_CONTEXTS, question, output_file_path
     )
 
 
