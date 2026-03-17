@@ -667,7 +667,7 @@ def main(args):
             logger.addHandler(file_handler)
 
             timeout_event = threading.Event()
-            timeout_minutes = 30
+            timeout_minutes = 13
 
             process_with_timeout(
                 model,
