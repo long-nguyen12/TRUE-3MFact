@@ -1572,7 +1572,7 @@ def fetch_webpage_content_bs4(link, retries=1):
 
     for attempt in range(retries):
         try:
-            response = session.get(link)
+            response = session.get(link, timeout=(10, 20))
             response.raise_for_status()
             response.encoding = "utf-8"
             soup = BeautifulSoup(response.text, "html.parser")
@@ -1639,7 +1639,7 @@ def readAPI_fetch_content(url):
     api_key = None
 
     def fetch(url, headers):
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=(10, 20))
         response.raise_for_status()
         if "application/json" in response.headers.get("Content-Type"):
             return response.json()
@@ -1725,6 +1725,7 @@ def fetch_webpage_content_trafilatura(link, retries=1):
 
     for attempt in range(retries):
         try:
+            # trafilatura internally uses networking; keep our own overall join timeout in fetch_webpage_content()
             downloaded = trafilatura.fetch_url(link, headers=headers)
 
             if downloaded:
@@ -1783,8 +1784,24 @@ def fetch_webpage_content(link, retries=2):
     for thread in threads:
         thread.start()
 
+    # Bound total waiting time so a single hung request
+    # doesn't stall the whole pipeline indefinitely.
+    join_timeout_s = float(INFORMATION_RETRIEVER_CONFIG.get("fetch_join_timeout_s", 30))
+    deadline = time.perf_counter() + join_timeout_s
     for thread in threads:
-        thread.join()
+        remaining = max(0.0, deadline - time.perf_counter())
+        thread.join(timeout=remaining)
+
+    any_alive = any(t.is_alive() for t in threads)
+    if any_alive:
+        # region agent log
+        _agent_dbg_log(
+            "IR6",
+            "InformationRetriever.py:1698",
+            "fetch_webpage_content join timeout hit (some threads still alive)",
+            {"link": link, "joinTimeoutSec": join_timeout_s},
+        )
+        # endregion agent log
 
     # region agent log
     _agent_dbg_log(
@@ -1798,6 +1815,7 @@ def fetch_webpage_content(link, retries=2):
             "result1": bool(results[1] and results[1].get("content")),
             "result2": bool(results[2] and results[2].get("content")),
             "result3": bool(results[3] and results[3].get("content")),
+            "anyAlive": any_alive,
         },
     )
     # endregion agent log
